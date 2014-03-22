@@ -1,23 +1,23 @@
-This project uses Gradle as its build and dependency management (see http://www.gradle.org/). Gradle is self-provisioning build framework which means you don't have to have gradle installed to follow the rest of the procedure. 
+#### _Try and YARN in less then 5_
+This project has two main goals.
 
-Spring Integration documentation is available here http://projects.spring.io/spring-integration/
+1. _To serve as a **tutorial** for those who would like to learn YARN_
+2. _An attempt to define a **simpler (developer friendly) YARN API**, that the end user can use._ -  _Yet Another Yarn API_ (YAYA?)
 
-BUILD for development:
+### YARN could and should be as simple as:
+```
+// Create a command to be executed in the container launched by the Application Master
+ApplicationCommand applicationCommand = new ApplicationCommand("cal");
 
-Depending on the IDE you are using execute the following gradle script.
-ECLIPSE:
+// Create YARN application
+YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();
 
-	./gradlew clean eclipse
-	
-IntelliJ IDEA
+// Start YARN application
+yarnApplication.start();
 
-	./gradlew clean idea
-	
-The above will generate all necessary IDE-specific artifacts to successfully import the project.
-Import the project into your IDE.
-For example in Eclipse follow this procedure:
+```
 
-	File -> Import -> General -> Existing Project Into Workspace -> browse to the root of the project and click Finish
+##### [Introduction](Introduction)
+##### [For Developers](Developers)
 
-Once project is successfully imported, navigate to src/main/java/bestbuydemo and open up BestBuyPicDemo.java class and follow directions there since it contains several demos.
-
+_Please send question and updates via pull requests and/or raising [issues](https://github.com/olegz/yarn-tutorial/issues) on this project._
