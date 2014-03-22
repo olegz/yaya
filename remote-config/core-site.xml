@@ -1,0 +1,16 @@
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://hadoop-node-one:9000</value>
+    <description>NameNode URI</description>
+  </property>
+  <property>
+    <name>hadoop.security.authentication</name>
+    <value>simple</value>
+    <description>Simple authentication</description>
+  </property>
+<property>
+  <name>hadoop.security.authorization</name>
+  <value>true</value>
+</property>
+</configuration>

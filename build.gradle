@@ -1,0 +1,50 @@
+description = 'yarn-tutorial'
+
+group = 'oz'
+
+  apply plugin: 'base'
+  apply plugin: 'maven'
+  apply plugin: 'eclipse'
+  apply plugin: 'idea'
+  apply plugin: 'java'
+  apply plugin: 'maven'
+  apply plugin: 'application'
+ 
+  sourceCompatibility=1.6
+  targetCompatibility=1.6
+
+  junitVersion = '4.8.2'
+  log4jVersion = '1.2.12'
+  hadoopVersion = '2.3.0'
+  
+  mainClassName="oz.hadoop.StandAloneWithMiniYarnCluster"
+
+repositories {
+    mavenCentral()
+    //maven { url 'http://repo1.maven.org/maven2' } // needed for Log4J Extras
+}
+
+sourceSets {
+	test {
+		resources {
+			srcDirs = ['src/test/resources', 'src/test/java']
+		}
+	}
+}
+
+dependencies {
+	compile "org.apache.hadoop:hadoop-yarn-client:$hadoopVersion"
+	compile "org.apache.hadoop:hadoop-common:$hadoopVersion"
+	compile "org.apache.hadoop:hadoop-hdfs:$hadoopVersion"
+	testCompile "org.apache.hadoop:hadoop-yarn-server-tests:$hadoopVersion:tests"
+	testCompile "junit:junit-dep:$junitVersion"
+}
+
+task wrapper(type: Wrapper) {
+    description = 'Generates gradlew[.bat] scripts'
+}
+
+task copyToLib(type: Copy) {
+    into "$buildDir/output/lib"
+    from configurations.runtime
+}
