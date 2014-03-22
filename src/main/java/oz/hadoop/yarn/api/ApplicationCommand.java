@@ -87,11 +87,6 @@ public class ApplicationCommand {
 		this.varArgs.put(PRIORITY, priority);
 	}
 
-	public void setArgument(String argumentName, String argumentValue){
-		StringAssertUtils.assertNotEmpty(argumentName);
-		this.varArgs.put(argumentName, argumentValue);
-	}
-
 	public void setApplicationMasterSpectClass(Class<ApplicationMasterSpec> applicationMasterSpecClass){
 		ObjectAssertUtils.assertNotNull(applicationMasterSpecClass);
 		this.varArgs.put(AM_SPEC, applicationMasterSpecClass.getClass().getName());
