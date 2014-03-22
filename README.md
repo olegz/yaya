@@ -18,7 +18,7 @@ yarnApplication.start();
 
 ```
 
-##### [Introduction](Introduction)
-##### [For Developers](Developers)
+##### [Introduction](https://github.com/olegz/yarn-tutorial/wiki/Introduction)
+##### [For Developers](https://github.com/olegz/yarn-tutorial/wiki/Developers)
 
 _Please send question and updates via pull requests and/or raising [issues](https://github.com/olegz/yarn-tutorial/issues) on this project._
