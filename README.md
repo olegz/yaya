@@ -10,7 +10,8 @@ This project has two main goals.
 ApplicationCommand applicationCommand = new ApplicationCommand("cal");
 
 // Create YARN application
-YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();
+YarnApplication yarnApplication = 
+          YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();
 
 // Start YARN application
 yarnApplication.start();
