@@ -34,6 +34,12 @@ public class ObjectAssertUtils {
 		}
 	}
 
+	/**
+	 * Asserts if the provided class is Java Main. That is if it contains
+	 * 'public static void main(String[] args)'
+	 *
+	 * @param clazz
+	 */
 	public static void assertIsMain(Class<?> clazz){
 		boolean valid = false;
 		ObjectAssertUtils.assertNotNull(clazz);
