@@ -47,7 +47,7 @@ import org.apache.hadoop.yarn.util.Records;
  * @author Oleg Zhurakousky
  *
  */
-class YarnApplicationMaster {
+final class YarnApplicationMaster {
 
 	private static final Log logger = LogFactory.getLog(YarnApplicationMaster.class);
 
