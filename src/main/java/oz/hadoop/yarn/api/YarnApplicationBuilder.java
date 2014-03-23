@@ -215,7 +215,6 @@ public class YarnApplicationBuilder {
 		return new YarnApplication() {
 			private final YarnClient yarnClient = YarnClient.createYarnClient();
 
-//			private String classpath;
 			/**
 			 *
 			 */
@@ -358,7 +357,7 @@ public class YarnApplicationBuilder {
 				    for (String str : command) {
 				    	commandBuffer.append(str).append(" ");
 				    }
-				    logger.info("ApplicationMaster launch command: " + command.toString());
+				    logger.info("ApplicationMaster launch command: " + command);
 				}
 
 			    return command;
