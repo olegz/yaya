@@ -8,6 +8,8 @@ This project has two main goals.
 ```
 // Create a command to be executed in the container launched by the Application Master
 UnixCommand applicationCommand = new UnixCommand("cal");
+// or create a Java command
+// JavaCommand applicationCommand = new JavaCommand(HelloWorld.class);
 
 // Create YARN application
 YarnApplication yarnApplication = 
