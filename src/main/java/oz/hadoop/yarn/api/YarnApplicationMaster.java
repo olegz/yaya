@@ -159,7 +159,7 @@ final class YarnApplicationMaster {
 
 		try {
 			this.resourceManagerClient.registerApplicationMaster("", 0, "");
-			logger.info("Registered ApplicationMaster with ResourceManager");
+			logger.info("Registered Application Master with ResourceManager");
 		}
 		catch (Exception e) {
 			throw new IllegalStateException("Failed to register ApplicationMaster with ResourceManager", e);
@@ -187,13 +187,14 @@ final class YarnApplicationMaster {
 	 */
 	private void stop(){
 		try {
-			logger.info("Unregistering the ApplicationMaster");
+			logger.info("Unregistering the Application Master");
 			this.resourceManagerClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED,
 					"Application " + this.getClass().getName() + " has finished" , null);
 			logger.info("Shutting down Node Manager Client");
 			this.nodeManagerClient.close();
 			logger.info("Shutting down Resource Manager Client");
 			this.resourceManagerClient.close();
+			logger.info("Shut down");
 		}
 		catch (Exception e) {
 			throw new IllegalStateException("Failed to shutdown " + this.getClass().getName(), e);
