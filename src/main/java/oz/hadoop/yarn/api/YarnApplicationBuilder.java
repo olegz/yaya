@@ -215,7 +215,7 @@ public class YarnApplicationBuilder {
 		return new YarnApplication() {
 			private final YarnClient yarnClient = YarnClient.createYarnClient();
 
-			private String classpath;
+//			private String classpath;
 			/**
 			 *
 			 */
@@ -340,34 +340,16 @@ public class YarnApplicationBuilder {
 			}
 
 			/**
-			 * Will generate the final launch command for thsi ApplicationMaster
+			 * Will generate the final launch command for this ApplicationMaster
 			 */
 			private List<String> createApplicationMasterLaunchCommand(ApplicationId appId, Map<String, LocalResource> localResources) {
 				List<String> command = new ArrayList<String>();
 
-				if ("true".equals(System.getProperty("local-cluster"))){
-					this.classpath = "-cp " + System.getProperty("java.class.path");
-				}
-				else {
-					String[] yarnClassPath = YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH;
-					StringBuffer buffer = new StringBuffer();
-					String delimiter = ":";
-					for (String value : yarnClassPath) {
-						buffer.append(value);
-						buffer.append(delimiter);
-					}
-					for (String jar : localResources.keySet()) {
-						buffer.append("./" + jar + ":");
-					}
+				String classpath = this.calculateClassPath(localResources);
 
-					this.classpath = "-cp " + buffer.toString();
-				}
-
-				command.add("java " + this.classpath);
-				command.add(applicationMasterFqn);
-
+				command.add("java " + classpath);
+				command.add(YarnApplicationBuilder.applicationMasterFqn);
 				command.add(YarnApplicationBuilder.this.applicationCommand.build());
-
 				command.add(" 1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + YarnApplicationBuilder.this.applicationName + "_MasterStdOut");
 				command.add(" 2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + YarnApplicationBuilder.this.applicationName + "_MasterStdErr");
 
@@ -381,6 +363,33 @@ public class YarnApplicationBuilder {
 
 			    return command;
 			}
+
+			/**
+			 *
+			 * @param localResources
+			 * @return
+			 */
+			private String calculateClassPath(Map<String, LocalResource> localResources) {
+				String classpath = null;
+				if ("true".equals(System.getProperty("local-cluster"))){
+					classpath = "-cp " + System.getProperty("java.class.path");
+				}
+				else {
+					String[] yarnClassPath = YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH;
+					StringBuffer buffer = new StringBuffer();
+					String delimiter = ":";
+					for (String value : yarnClassPath) {
+						buffer.append(value);
+						buffer.append(delimiter);
+					}
+					for (String resource : localResources.keySet()) {
+						buffer.append("./" + resource + ":");
+					}
+					classpath = "-cp " + buffer.toString();
+				}
+				return classpath;
+			}
+
 			/**
 			 *
 			 */
