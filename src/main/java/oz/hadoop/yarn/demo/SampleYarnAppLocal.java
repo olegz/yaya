@@ -1,6 +1,6 @@
 package oz.hadoop.yarn.demo;
 
-import oz.hadoop.yarn.api.ApplicationCommand;
+import oz.hadoop.yarn.api.UnixCommand;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnApplicationBuilder;
 
@@ -24,7 +24,12 @@ public class SampleYarnAppLocal {
 		System.setProperty("local-cluster", "true");
 
 		// Create a command to be executed in the container launched by the Application Master
-		ApplicationCommand applicationCommand = new ApplicationCommand("cal");
+		UnixCommand applicationCommand = new UnixCommand("cal");
+
+		// or create a Java command
+//		JavaCommand applicationCommand = new JavaCommand(HelloWorld.class);
+//		applicationCommand.addCommandArgument("foo");
+//		applicationCommand.addCommandArgument("bar");
 
 		// Create YARN application
 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();

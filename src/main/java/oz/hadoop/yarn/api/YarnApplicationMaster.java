@@ -79,18 +79,17 @@ final class YarnApplicationMaster {
 	 *
 	 */
 	YarnApplicationMaster(String[] args) {
-		this.command = args[1];
-		this.containerCount = Integer.parseInt(args[3]);
-		this.memory = Integer.parseInt(args[5]);
-		this.virtualCores = Integer.parseInt(args[7]);
-		this.priority = Integer.parseInt(args[9]);
+		this.containerCount = Integer.parseInt(args[1]);
+		this.memory = Integer.parseInt(args[3]);
+		this.virtualCores = Integer.parseInt(args[5]);
+		this.priority = Integer.parseInt(args[7]);
 		try {
-			this.applicationMasterSpec = (ApplicationMasterSpec) Class.forName(args[11]).newInstance();
+			this.applicationMasterSpec = (ApplicationMasterSpec) Class.forName(args[9]).newInstance();
 		}
 		catch (Exception e) {
 			throw new IllegalArgumentException("Failed to create an instance of ApplicationMasterSpec", e);
 		}
-
+		this.command = args[11];
 		this.yarnConfig = new YarnConfiguration();
 
 		this.executor = Executors.newFixedThreadPool(this.containerCount);

@@ -21,7 +21,7 @@ package oz.hadoop.yarn.api;
  *
  * YarnApplication encapsulates YARNs Application Master container which internally encapsulates
  * client's application containers (applications).
- * See {@link ApplicationCommand} {@link YarnApplicationMaster} and {@link YarnApplicationBuilder} for more details.
+ * See {@link AbstractApplicationCommand} {@link YarnApplicationMaster} and {@link YarnApplicationBuilder} for more details.
  *
  * @author Oleg Zhurakousky
  *

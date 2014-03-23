@@ -7,7 +7,7 @@ This project has two main goals.
 ### YARN could and should be as simple as:
 ```
 // Create a command to be executed in the container launched by the Application Master
-ApplicationCommand applicationCommand = new ApplicationCommand("cal");
+UnixCommand applicationCommand = new UnixCommand("cal");
 
 // Create YARN application
 YarnApplication yarnApplication = 

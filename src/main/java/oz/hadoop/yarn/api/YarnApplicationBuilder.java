@@ -91,7 +91,7 @@ public class YarnApplicationBuilder {
 
 	private YarnConfiguration yarnConfig;
 
-	private final ApplicationCommand applicationCommand;
+	private final AbstractApplicationCommand applicationCommand;
 
 	private final Resource capability;
 
@@ -102,13 +102,13 @@ public class YarnApplicationBuilder {
 	private int priority;
 
 	/**
-	 * Creates an instance of this builder initializing it with the application name and {@link ApplicationCommand}
+	 * Creates an instance of this builder initializing it with the application name and {@link AbstractApplicationCommand}
 	 *
 	 * @param applicationName
 	 * @param applicationCommand
 	 * @return
 	 */
-	public static YarnApplicationBuilder forApplication(String applicationName, ApplicationCommand applicationCommand){
+	public static YarnApplicationBuilder forApplication(String applicationName, AbstractApplicationCommand applicationCommand){
 		StringAssertUtils.assertNotEmptyAndNoSpaces(applicationName);
 		ObjectAssertUtils.assertNotNull(applicationCommand);
 
@@ -119,7 +119,7 @@ public class YarnApplicationBuilder {
 	 *
 	 * @param applicationName
 	 */
-	private YarnApplicationBuilder(String applicationName, ApplicationCommand applicationCommand){
+	private YarnApplicationBuilder(String applicationName, AbstractApplicationCommand applicationCommand){
 		this.applicationName = applicationName;
 		this.applicationCommand = applicationCommand;
 		this.yarnConfig = new YarnConfiguration();
@@ -346,8 +346,11 @@ public class YarnApplicationBuilder {
 
 				String classpath = this.calculateClassPath(localResources);
 
-				command.add("java " + classpath);
+				command.add("java -cp " + classpath);
 				command.add(YarnApplicationBuilder.applicationMasterFqn);
+				if (YarnApplicationBuilder.this.applicationCommand instanceof JavaCommand){
+					((JavaCommand)YarnApplicationBuilder.this.applicationCommand).setClasspath(classpath);
+				}
 				command.add(YarnApplicationBuilder.this.applicationCommand.build());
 				command.add(" 1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + YarnApplicationBuilder.this.applicationName + "_MasterStdOut");
 				command.add(" 2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + YarnApplicationBuilder.this.applicationName + "_MasterStdErr");
@@ -357,7 +360,7 @@ public class YarnApplicationBuilder {
 				    for (String str : command) {
 				    	commandBuffer.append(str).append(" ");
 				    }
-				    logger.info("ApplicationMaster launch command: " + command);
+				    logger.info("ApplicationMaster launch command: " + commandBuffer.toString());
 				}
 
 			    return command;
@@ -371,7 +374,7 @@ public class YarnApplicationBuilder {
 			private String calculateClassPath(Map<String, LocalResource> localResources) {
 				String classpath = null;
 				if ("true".equals(System.getProperty("local-cluster"))){
-					classpath = "-cp " + System.getProperty("java.class.path");
+					classpath = System.getProperty("java.class.path");
 				}
 				else {
 					String[] yarnClassPath = YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH;
@@ -384,7 +387,7 @@ public class YarnApplicationBuilder {
 					for (String resource : localResources.keySet()) {
 						buffer.append("./" + resource + ":");
 					}
-					classpath = "-cp " + buffer.toString();
+					classpath = buffer.toString();
 				}
 				return classpath;
 			}

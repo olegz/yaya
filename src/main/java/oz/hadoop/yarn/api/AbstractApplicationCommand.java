@@ -24,14 +24,13 @@ import org.apache.commons.logging.LogFactory;
 
 import oz.hadoop.yarn.api.utils.NumberAssertUtils;
 import oz.hadoop.yarn.api.utils.ObjectAssertUtils;
-import oz.hadoop.yarn.api.utils.StringAssertUtils;
 
 /**
  *
  * @author Oleg Zhurakousky
  *
  */
-public class ApplicationCommand {
+public abstract class AbstractApplicationCommand {
 	public static final String COMMAND = "command";
 	public static final String CONTAINER_COUNT = "containerCount";
 	public static final String MEMORY = "memory";
@@ -39,62 +38,61 @@ public class ApplicationCommand {
 	public static final String PRIORITY = "priority";
 	public static final String AM_SPEC = "amSpec";
 
-	private static final Log logger = LogFactory.getLog(ApplicationCommand.class);
+	private static final Log logger = LogFactory.getLog(AbstractApplicationCommand.class);
 
-	private final HashMap<String, Object> varArgs;
+	private final HashMap<String, Object> containerArguments;
 
-	/**
-	 * If command contains multiple tokens (e.g., "java -cp foo.har HelloWorld"), it
-	 * will be wrapped in single quotes.
-	 *
-	 * @param command
-	 */
-	public ApplicationCommand(String command){
-		StringAssertUtils.assertNotEmpty(command);
-		this.varArgs = new LinkedHashMap<String, Object>();
 
-		if (command.contains(" ")){
-			this.varArgs.put(COMMAND, "'" + command + "'");
-		}
-		else {
-			this.varArgs.put(COMMAND, command);
-		}
-
-		this.varArgs.put(CONTAINER_COUNT, 1);
-		this.varArgs.put(MEMORY, 128);
-		this.varArgs.put(VIRTUAL_CORES, 1);
-		this.varArgs.put(PRIORITY, 0);
-		this.varArgs.put(AM_SPEC, ApplicationMasterSpec.class.getName());
+	public AbstractApplicationCommand(){
+		this.containerArguments = new LinkedHashMap<String, Object>();
+		this.containerArguments.put(CONTAINER_COUNT, 1);
+		this.containerArguments.put(MEMORY, 128);
+		this.containerArguments.put(VIRTUAL_CORES, 1);
+		this.containerArguments.put(PRIORITY, 0);
+		this.containerArguments.put(AM_SPEC, ApplicationMasterSpec.class.getName());
 	}
 
 	public void setContainerCount(int containerCount) {
 		NumberAssertUtils.assertZeroOrPositive(containerCount);
-		this.varArgs.put(CONTAINER_COUNT, containerCount);
+		this.containerArguments.put(CONTAINER_COUNT, containerCount);
 	}
 
 	public void setMemory(int memory){
 		NumberAssertUtils.assertZeroOrPositive(memory);
-		this.varArgs.put(MEMORY, memory);
+		this.containerArguments.put(MEMORY, memory);
 	}
 
 	public void setVirtualCores(int virtualCores){
 		NumberAssertUtils.assertZeroOrPositive(virtualCores);
-		this.varArgs.put(VIRTUAL_CORES, virtualCores);
+		this.containerArguments.put(VIRTUAL_CORES, virtualCores);
 	}
 
 	public void setPriority(int priority){
 		NumberAssertUtils.assertZeroOrPositive(priority);
-		this.varArgs.put(PRIORITY, priority);
+		this.containerArguments.put(PRIORITY, priority);
 	}
 
-	public void setApplicationMasterSpectClass(Class<ApplicationMasterSpec> applicationMasterSpecClass){
+	public void setApplicationMasterSpecClass(Class<ApplicationMasterSpec> applicationMasterSpecClass){
 		ObjectAssertUtils.assertNotNull(applicationMasterSpecClass);
-		this.varArgs.put(AM_SPEC, applicationMasterSpecClass.getClass().getName());
+		this.containerArguments.put(AM_SPEC, applicationMasterSpecClass.getClass().getName());
 	}
 
-	public String build(){
+	protected void setFinalCommand(String command){
+		if (command.contains(" ")){
+			this.setContainerArgument(COMMAND, "'" + command + "'");
+		}
+		else {
+			this.setContainerArgument(COMMAND, command);
+		}
+	}
+
+	protected void setContainerArgument(String name, String value) {
+		this.containerArguments.put(name, value);
+	}
+
+	protected String build(){
 		StringBuffer commandBuffer = new StringBuffer();
-		for (Entry<String, Object> entry : this.varArgs.entrySet()) {
+		for (Entry<String, Object> entry : this.containerArguments.entrySet()) {
 			commandBuffer.append(entry.getKey());
 			commandBuffer.append(" ");
 			commandBuffer.append(entry.getValue());

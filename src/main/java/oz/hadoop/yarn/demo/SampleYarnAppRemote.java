@@ -1,6 +1,7 @@
 package oz.hadoop.yarn.demo;
 
-import oz.hadoop.yarn.api.ApplicationCommand;
+import oz.hadoop.yarn.api.AbstractApplicationCommand;
+import oz.hadoop.yarn.api.UnixCommand;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnApplicationBuilder;
 
@@ -18,7 +19,7 @@ public class SampleYarnAppRemote {
 	 */
 	public static void main(String[] args) throws Exception{
 		// Create a command to be executed in the container launched by the Application Master
-		ApplicationCommand applicationCommand = new ApplicationCommand("java -cp ./*.jar oz.hadoop.yarn.demo.HelloWorld");
+		AbstractApplicationCommand applicationCommand = new UnixCommand("cal");
 
 		// Create YARN application
 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();
