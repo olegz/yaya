@@ -13,8 +13,8 @@ ApplicationCommand applicationCommand = new ApplicationCommand("cal");
 YarnApplication yarnApplication = 
           YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();
 
-// Start YARN application
-yarnApplication.start();
+// Launch YARN application
+yarnApplication.launch();
 
 ```
 
