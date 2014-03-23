@@ -53,17 +53,17 @@ public abstract class AbstractApplicationCommand {
 	}
 
 	public void setContainerCount(int containerCount) {
-		NumberAssertUtils.assertZeroOrPositive(containerCount);
+		NumberAssertUtils.assertGreaterThenZero(containerCount);
 		this.containerArguments.put(CONTAINER_COUNT, containerCount);
 	}
 
 	public void setMemory(int memory){
-		NumberAssertUtils.assertZeroOrPositive(memory);
+		NumberAssertUtils.assertGreaterThenZero(memory);
 		this.containerArguments.put(MEMORY, memory);
 	}
 
 	public void setVirtualCores(int virtualCores){
-		NumberAssertUtils.assertZeroOrPositive(virtualCores);
+		NumberAssertUtils.assertGreaterThenZero(virtualCores);
 		this.containerArguments.put(VIRTUAL_CORES, virtualCores);
 	}
 
@@ -98,8 +98,10 @@ public abstract class AbstractApplicationCommand {
 			commandBuffer.append(entry.getValue());
 			commandBuffer.append(" ");
 		}
-		String finalCommand = commandBuffer.toString();
-		logger.info("Built command: " + finalCommand);
+		String finalCommand = commandBuffer.toString().trim();
+		if (logger.isInfoEnabled()){
+			logger.info("Built command: " + finalCommand);
+		}
 		return finalCommand;
 	}
 }

@@ -31,6 +31,7 @@ public class UnixCommand extends AbstractApplicationCommand {
 	public UnixCommand(String command) {
 		super();
 		StringAssertUtils.assertNotEmpty(command);
+		StringAssertUtils.assertNotEmpty(command.trim());
 		this.setFinalCommand(command);
 	}
 

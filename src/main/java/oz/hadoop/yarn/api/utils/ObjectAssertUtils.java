@@ -15,6 +15,9 @@
  */
 package oz.hadoop.yarn.api.utils;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
 /**
  *
  * @author Oleg Zhurakousky
@@ -28,6 +31,23 @@ public class ObjectAssertUtils {
 	public static void assertNotNull(Object value){
 		if (value == null){
 			throw new IllegalArgumentException("'value' must not be null");
+		}
+	}
+
+	public static void assertIsMain(Class<?> clazz){
+		boolean valid = false;
+		ObjectAssertUtils.assertNotNull(clazz);
+		try {
+			Method m = clazz.getMethod("main", new Class[]{String[].class});
+			Class<?> returnType = m.getReturnType();
+			if (m.getModifiers() == (Modifier.STATIC | Modifier.PUBLIC) && returnType.getName().equals("void")){
+				valid = true;
+			}
+		} catch (Exception e) {
+			// ignore
+		}
+		if (!valid){
+			throw new IllegalArgumentException("Provided class is not does not contain 'public static void main(String[] args) signature'");
 		}
 	}
 }

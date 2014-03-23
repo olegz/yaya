@@ -40,7 +40,7 @@ public class JavaCommand extends AbstractApplicationCommand {
 	 */
 	public JavaCommand(Class<?> mainClass) {
 		super();
-		ObjectAssertUtils.assertNotNull(mainClass);
+		ObjectAssertUtils.assertIsMain(mainClass);
 		this.mainClassName = mainClass.getName();
 		this.javaCommand = "java";
 		this.commandArguments = new ArrayList<String>();

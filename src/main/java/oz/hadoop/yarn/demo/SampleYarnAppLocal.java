@@ -14,7 +14,7 @@ public class SampleYarnAppLocal {
 	/**
 	 * Before running ensure that properly configured yarn-site.xml are copied
 	 * into src/main/resources. You can use the yarn-site.xml from local-config
-	 * directory of this project. THe newly checkout out project is already
+	 * directory of this project. The newly checkout out project is already
 	 * setup for this.
 	 *
 	 * Also, make sure you start local YARN cluster by executing
