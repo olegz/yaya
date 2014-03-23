@@ -18,13 +18,13 @@ public class SampleYarnAppRemote {
 	 */
 	public static void main(String[] args) throws Exception{
 		// Create a command to be executed in the container launched by the Application Master
-		ApplicationCommand applicationCommand = new ApplicationCommand("cal");
+		ApplicationCommand applicationCommand = new ApplicationCommand("java -cp ./*.jar oz.hadoop.yarn.demo.HelloWorld");
 
 		// Create YARN application
 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();
 
 		// Start YARN application
-		yarnApplication.start();
+		yarnApplication.launch();
 
 		// Check <LOG_DIR>/userlogs for application logs
 	}

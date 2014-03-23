@@ -66,7 +66,7 @@ import oz.hadoop.yarn.api.utils.StringAssertUtils;
  *				setVirtualCores(1).
  *				build();
  *
- *      yarnApplication.deploy();
+ *      yarnApplication.launch();
  * <pre>
  * The returned {@link YarnApplication} will will be initialized with default values (see setters) while those values
  * could be overridden during the build process. In other words for bare minimum all you need is the following:
@@ -75,7 +75,7 @@ import oz.hadoop.yarn.api.utils.StringAssertUtils;
  *
  * 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("myCoolYarnApp", applicationCommand).build();
  *
- *      yarnApplication.deploy();
+ *      yarnApplication.launch();
  * <pre>
  *
  * @author Oleg Zhurakousky
@@ -88,8 +88,6 @@ public class YarnApplicationBuilder {
 	private final static String applicationMasterFqn = "oz.hadoop.yarn.api.YarnApplicationMaster";
 
 	private final String applicationName;
-
-	private YarnClient yarnClient;
 
 	private YarnConfiguration yarnConfig;
 
@@ -126,7 +124,6 @@ public class YarnApplicationBuilder {
 	private YarnApplicationBuilder(String applicationName, ApplicationCommand applicationCommand){
 		this.applicationName = applicationName;
 		this.applicationCommand = applicationCommand;
-		this.yarnClient = YarnClient.createYarnClient();
 		this.yarnConfig = new YarnConfiguration();
 
 		this.capability = Records.newRecord(Resource.class);
@@ -210,17 +207,6 @@ public class YarnApplicationBuilder {
 	}
 
 	/**
-	 * Sets {@link YarnClient} otherwise default is used.
-	 *
-	 * @param yarnClient
-	 */
-	public YarnApplicationBuilder setYarnClient(YarnClient yarnClient) {
-		ObjectAssertUtils.assertNotNull(yarnClient);
-		this.yarnClient = yarnClient;
-		return this;
-	}
-
-	/**
 	 * Will build {@link YarnApplication} from values provided in this builder.
 	 * Any change to this builder's values after calling this method will not affect the
 	 * newly created {@link YarnApplication}
@@ -229,33 +215,22 @@ public class YarnApplicationBuilder {
 	 */
 	public YarnApplication build(){
 		return new YarnApplication() {
+			private final YarnClient yarnClient = YarnClient.createYarnClient();
 			/**
 			 *
 			 */
 			@Override
-			public boolean start() {
-				this.initAndStartYarnClient();
-				if (YarnApplicationBuilder.this.capability.getVirtualCores() > 1){
-					if (!YarnApplicationBuilder.this.yarnConfig.get(YarnConfiguration.RM_SCHEDULER).
-							equals(FairScheduler.class.getName())){
-						logger.warn("Based on current Hadoop implementation " +
-								"'vcore' settings are ignored for schedulers other then FairScheduler");
-					}
-				}
+			public boolean launch() {
+				this.preCheck();
+				this.startYarnClient();
 
-				YarnClientApplication yarnClientApplication = null;
-				try {
-					yarnClientApplication = YarnApplicationBuilder.this.yarnClient.createApplication();
-				}
-				catch (Exception e) {
-					throw new IllegalStateException("Failed to create YarnClientApplication", e);
-				}
+				YarnClientApplication yarnClientApplication = this.createYarnClientApplication();
 
 			    ApplicationSubmissionContext appContext = this.initApplicationContext(yarnClientApplication);
 
 			    logger.info("Deploying ApplicationMaster");
 			    try {
-			    	YarnApplicationBuilder.this.yarnClient.submitApplication(appContext);
+			    	this.yarnClient.submitApplication(appContext);
 				}
 			    catch (Exception e) {
 					throw new IllegalStateException("Failed to deploy application: " + YarnApplicationBuilder.this.applicationName, e);
@@ -264,12 +239,39 @@ public class YarnApplicationBuilder {
 			}
 
 			/**
+			 * Any type of pre-check you want to perform before launching Application Master
+			 * mainly for the purpose of logging warning messages
+			 */
+			private void preCheck(){
+				if (YarnApplicationBuilder.this.capability.getVirtualCores() > 1){
+					if (!YarnApplicationBuilder.this.yarnConfig.get(YarnConfiguration.RM_SCHEDULER).equals(FairScheduler.class.getName())){
+						logger.warn("Based on current Hadoop implementation " +
+								"'vcore' settings are ignored for schedulers other then FairScheduler");
+					}
+				}
+			}
+
+			/**
+			 *
+			 * @return
+			 */
+			private YarnClientApplication createYarnClientApplication(){
+				try {
+					YarnClientApplication yarnClientApplication = this.yarnClient.createApplication();
+					logger.debug("Created YarnClientApplication");
+					return yarnClientApplication;
+				}
+				catch (Exception e) {
+					throw new IllegalStateException("Failed to create YarnClientApplication", e);
+				}
+			}
+
+			/**
 			 *
 			 */
-			private void initAndStartYarnClient() {
-				logger.info("Starting YarnClient");
-				yarnClient.init(YarnApplicationBuilder.this.yarnConfig);
-				yarnClient.start();
+			private void startYarnClient() {
+				this.yarnClient.init(YarnApplicationBuilder.this.yarnConfig);
+				this.yarnClient.start();
 				logger.info("Started YarnClient");
 			}
 
@@ -279,30 +281,36 @@ public class YarnApplicationBuilder {
 			private ApplicationSubmissionContext initApplicationContext(YarnClientApplication yarnClientApplication){
 				ApplicationSubmissionContext appContext = yarnClientApplication.getApplicationSubmissionContext();
 			    appContext.setApplicationName(YarnApplicationBuilder.this.applicationName);
-			    ContainerLaunchContext applicationMasterContainer = Records.newRecord(ContainerLaunchContext.class);
 
 			    ApplicationId appId = appContext.getApplicationId();
+			    ContainerLaunchContext applicationMasterContainer = Records.newRecord(ContainerLaunchContext.class);
 
 			    Map<String, LocalResource> localResources = YarnApplicationBuilder.this.createLcalResources(appId);
+			    if (logger.isDebugEnabled()){
+			    	logger.debug("Created LocalResources: " + localResources);
+			    }
 			    applicationMasterContainer.setLocalResources(localResources);
 
 			    List<String> launchCommand = YarnApplicationBuilder.this.createApplicationMasterLaunchCommand(appId, localResources);
 				applicationMasterContainer.setCommands(launchCommand);
 
+				Priority priority = Records.newRecord(Priority.class);
+			    priority.setPriority(YarnApplicationBuilder.this.priority);
 			    appContext.setResource(YarnApplicationBuilder.this.capability);
 			    appContext.setMaxAppAttempts(YarnApplicationBuilder.this.maxAttempts);
 			    appContext.setAMContainerSpec(applicationMasterContainer);
-			    Priority priority = Records.newRecord(Priority.class);
-			    priority.setPriority(YarnApplicationBuilder.this.priority);
 			    appContext.setPriority(priority);
 			    appContext.setQueue(YarnApplicationBuilder.this.queueName);
-			    logger.info("Created Capability: " + capability);
+
+			    if (logger.isInfoEnabled()){
+			    	logger.info("Created ApplicationSubmissionContext: " + appContext);
+			    }
 
 				return appContext;
 			}
 
 			@Override
-			public boolean stop() {
+			public boolean terminate() {
 				throw new UnsupportedOperationException("This method is currently unimplemented. Check later");
 			}
 		};
@@ -389,16 +397,16 @@ public class YarnApplicationBuilder {
 
 		try {
 			fs.copyFromLocalFile(new Path(fileSrcPath), dst);
-			new File(fileSrcPath).delete();
 			FileStatus scFileStatus = fs.getFileStatus(dst);
-			LocalResource scRsrc = LocalResource.newInstance(
-					ConverterUtils.getYarnUrlFromURI(dst.toUri()),
-					LocalResourceType.FILE, LocalResourceVisibility.APPLICATION,
-					scFileStatus.getLen(), scFileStatus.getModificationTime());
+			LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(dst.toUri()),
+					LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, scFileStatus.getLen(), scFileStatus.getModificationTime());
 			localResources.put(fileDstPath, scRsrc);
 		}
 		catch (Exception e) {
 			throw new IllegalStateException("Failed to communicate with FileSystem: " + fs, e);
+		}
+		finally {
+			new File(fileSrcPath).delete();
 		}
 	}
 

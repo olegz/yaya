@@ -24,13 +24,13 @@ public class SampleYarnAppLocal {
 		System.setProperty("local-cluster", "true");
 
 		// Create a command to be executed in the container launched by the Application Master
-		ApplicationCommand applicationCommand = new ApplicationCommand("cal");
+		ApplicationCommand applicationCommand = new ApplicationCommand("java -cp ./* oz.hadoop.yarn.demo.HelloWorld");
 
 		// Create YARN application
 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();
 
 		// Start YARN application
-		yarnApplication.start();
+		yarnApplication.launch();
 
 		// Check target/LOCAL_YARN_CLUSTER directory of this project for application logs
 	}

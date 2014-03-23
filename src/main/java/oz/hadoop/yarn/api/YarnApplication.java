@@ -31,11 +31,11 @@ public interface YarnApplication {
 	 * Starts YARN application
 	 * @return
 	 */
-	public boolean start();
+	public boolean launch();
 
 	/**
 	 * Stops YARN application
 	 * @return
 	 */
-	public boolean stop();
+	public boolean terminate();
 }
