@@ -39,7 +39,7 @@ import org.apache.hadoop.yarn.util.Records;
 
 /**
  * Default implementation of YARN Application Master. Currently YARN does not expose the Application Master
- * via any strategy, thus requiring and YARN-based application to implement its own from scratch.
+ * via any strategy, thus requiring any YARN-based application to implement its own from scratch.
  * The intention of this implementation of ApplicationMaster is to provide such strategy with enough default behavior
  * to allow most of the application containers to be deployed without ever implementing an ApplicationMaster.
  * This implementation could be further customized via {@link ApplicationMasterSpec}.

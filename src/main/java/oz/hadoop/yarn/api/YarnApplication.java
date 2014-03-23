@@ -19,7 +19,8 @@ package oz.hadoop.yarn.api;
  * Such implementation must encapsulate everything required (e.g., configuration, Application Master implementation etc.)
  * in order to call {@link #start()} method and have the underlying application be successfully deployed.
  *
- * YarnApplication encapsulates YARNs ApplicatioinMaster container which internally encapsulates client's applications
+ * YarnApplication encapsulates YARNs Application Master container which internally encapsulates
+ * client's application containers (applications).
  * See {@link ApplicationCommand} {@link YarnApplicationMaster} and {@link YarnApplicationBuilder} for more details.
  *
  * @author Oleg Zhurakousky

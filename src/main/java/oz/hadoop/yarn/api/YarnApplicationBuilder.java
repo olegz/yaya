@@ -101,8 +101,6 @@ public class YarnApplicationBuilder {
 
 	private int priority;
 
-	private String classpath;
-
 	/**
 	 * Creates an instance of this builder initializing it with the application name and {@link ApplicationCommand}
 	 *
@@ -216,6 +214,8 @@ public class YarnApplicationBuilder {
 	public YarnApplication build(){
 		return new YarnApplication() {
 			private final YarnClient yarnClient = YarnClient.createYarnClient();
+
+			private String classpath;
 			/**
 			 *
 			 */
@@ -236,6 +236,14 @@ public class YarnApplicationBuilder {
 					throw new IllegalStateException("Failed to deploy application: " + YarnApplicationBuilder.this.applicationName, e);
 				}
 			    return true;
+			}
+
+			/**
+			 *
+			 */
+			@Override
+			public boolean terminate() {
+				throw new UnsupportedOperationException("This method is currently unimplemented. Check later");
 			}
 
 			/**
@@ -269,15 +277,6 @@ public class YarnApplicationBuilder {
 			/**
 			 *
 			 */
-			private void startYarnClient() {
-				this.yarnClient.init(YarnApplicationBuilder.this.yarnConfig);
-				this.yarnClient.start();
-				logger.info("Started YarnClient");
-			}
-
-			/**
-			 *
-			 */
 			private ApplicationSubmissionContext initApplicationContext(YarnClientApplication yarnClientApplication){
 				ApplicationSubmissionContext appContext = yarnClientApplication.getApplicationSubmissionContext();
 			    appContext.setApplicationName(YarnApplicationBuilder.this.applicationName);
@@ -285,13 +284,13 @@ public class YarnApplicationBuilder {
 			    ApplicationId appId = appContext.getApplicationId();
 			    ContainerLaunchContext applicationMasterContainer = Records.newRecord(ContainerLaunchContext.class);
 
-			    Map<String, LocalResource> localResources = YarnApplicationBuilder.this.createLcalResources(appId);
+			    Map<String, LocalResource> localResources = this.createLocalResources(appId);
 			    if (logger.isDebugEnabled()){
 			    	logger.debug("Created LocalResources: " + localResources);
 			    }
 			    applicationMasterContainer.setLocalResources(localResources);
 
-			    List<String> launchCommand = YarnApplicationBuilder.this.createApplicationMasterLaunchCommand(appId, localResources);
+			    List<String> launchCommand = this.createApplicationMasterLaunchCommand(appId, localResources);
 				applicationMasterContainer.setCommands(launchCommand);
 
 				Priority priority = Records.newRecord(Priority.class);
@@ -309,117 +308,122 @@ public class YarnApplicationBuilder {
 				return appContext;
 			}
 
-			@Override
-			public boolean terminate() {
-				throw new UnsupportedOperationException("This method is currently unimplemented. Check later");
+			/**
+			 * Will package this application JAR in {@link LocalResource}s.
+			 * TODO make it more general to allow other resources
+			 */
+			private Map<String, LocalResource> createLocalResources(ApplicationId appId) {
+				Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+				try {
+					FileSystem fs = FileSystem.get(YarnApplicationBuilder.this.yarnConfig);
+					String[] cp = System.getProperty("java.class.path").split(":");
+					for (String v : cp) {
+						File f = new File(v);
+						if (f.isDirectory()) {
+							String jarFileName = this.generateJarFileName();
+							if (logger.isDebugEnabled()){
+								logger.debug("Creating JAR: " + jarFileName);
+							}
+							File jarFile = JarUtils.toJar(f, jarFileName);
+							addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), appId.getId(), localResources);
+						}
+						//TODO ensure the entire dev classpath is localized on the server
+//						else {
+//							addToLocalResources(fs, f.getAbsolutePath(), f.getName(), appId.getId(), localResources, null);
+//						}
+					}
+				}
+			    catch (Exception e) {
+					throw new IllegalStateException(e);
+				}
+				return localResources;
+			}
+
+			/**
+			 * Will generate the final launch command for thsi ApplicationMaster
+			 */
+			private List<String> createApplicationMasterLaunchCommand(ApplicationId appId, Map<String, LocalResource> localResources) {
+				List<String> command = new ArrayList<String>();
+
+				if ("true".equals(System.getProperty("local-cluster"))){
+					this.classpath = "-cp " + System.getProperty("java.class.path");
+				}
+				else {
+					String[] yarnClassPath = YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH;
+					StringBuffer buffer = new StringBuffer();
+					String delimiter = ":";
+					for (String value : yarnClassPath) {
+						buffer.append(value);
+						buffer.append(delimiter);
+					}
+					for (String jar : localResources.keySet()) {
+						buffer.append("./" + jar + ":");
+					}
+
+					this.classpath = "-cp " + buffer.toString();
+				}
+
+				command.add("java " + this.classpath);
+				command.add(applicationMasterFqn);
+
+				command.add(YarnApplicationBuilder.this.applicationCommand.build());
+
+				command.add(" 1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + YarnApplicationBuilder.this.applicationName + "_MasterStdOut");
+				command.add(" 2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + YarnApplicationBuilder.this.applicationName + "_MasterStdErr");
+
+				if (logger.isInfoEnabled()){
+					StringBuilder commandBuffer = new StringBuilder();
+				    for (String str : command) {
+				    	commandBuffer.append(str).append(" ");
+				    }
+				    logger.info("ApplicationMaster launch command: " + command.toString());
+				}
+
+			    return command;
+			}
+			/**
+			 *
+			 */
+			private void startYarnClient() {
+				this.yarnClient.init(YarnApplicationBuilder.this.yarnConfig);
+				this.yarnClient.start();
+				logger.info("Started YarnClient");
+			}
+
+			/**
+			 *
+			 */
+			private void addToLocalResources(FileSystem fs, String fileSrcPath, String fileDstPath, int appId, Map<String, LocalResource> localResources) {
+				String suffix = YarnApplicationBuilder.this.applicationName + "/" + appId + "/" + fileDstPath;
+				Path dst = new Path(fs.getHomeDirectory(), suffix);
+
+				try {
+					fs.copyFromLocalFile(new Path(fileSrcPath), dst);
+					FileStatus scFileStatus = fs.getFileStatus(dst);
+					LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(dst.toUri()),
+							LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, scFileStatus.getLen(), scFileStatus.getModificationTime());
+					localResources.put(fileDstPath, scRsrc);
+				}
+				catch (Exception e) {
+					throw new IllegalStateException("Failed to communicate with FileSystem: " + fs, e);
+				}
+				finally {
+					new File(fileSrcPath).delete();
+				}
+			}
+
+			/**
+			 *
+			 * @return
+			 */
+			private String generateJarFileName(){
+				StringBuffer nameBuffer = new StringBuffer();
+				nameBuffer.append(YarnApplicationBuilder.this.applicationName);
+				nameBuffer.append("_");
+				nameBuffer.append(UUID.randomUUID().toString());
+				nameBuffer.append(".jar");
+				return nameBuffer.toString();
 			}
 		};
-	}
-
-	/**
-	 * Will package this application JAR in {@link LocalResource}s.
-	 * TODO make it more general to allow other resources
-	 */
-	private Map<String, LocalResource> createLcalResources(ApplicationId appId) {
-		Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
-		try {
-			FileSystem fs = FileSystem.get(YarnApplicationBuilder.this.yarnConfig);
-			String[] cp = System.getProperty("java.class.path").split(":");
-			for (String v : cp) {
-				File f = new File(v);
-				if (f.isDirectory()) {
-					String jarFileName = YarnApplicationBuilder.this.generateJarFileName();
-					logger.info("Creating JAR: " + jarFileName);
-					File jarFile = JarUtils.toJar(f, jarFileName);
-					addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), appId.getId(), localResources);
-				}
-				//TODO ensure the entire dev classpath is localized on the server
-//				else {
-//					addToLocalResources(fs, f.getAbsolutePath(), f.getName(), appId.getId(), localResources, null);
-//				}
-			}
-		}
-	    catch (Exception e) {
-			throw new IllegalStateException(e);
-		}
-		return localResources;
-	}
-
-	/**
-	 * Will generate the final launch command for thsi ApplicationMaster
-	 */
-	private List<String> createApplicationMasterLaunchCommand(ApplicationId appId, Map<String, LocalResource> localResources) {
-		List<String> command = new ArrayList<String>();
-
-		if ("true".equals(System.getProperty("local-cluster"))){
-			this.classpath = "-cp " + System.getProperty("java.class.path");
-		}
-		else {
-			String[] yarnClassPath = YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH;
-			StringBuffer buffer = new StringBuffer();
-			String delimiter = ":";
-			for (String value : yarnClassPath) {
-				buffer.append(value);
-				buffer.append(delimiter);
-			}
-			for (String jar : localResources.keySet()) {
-				buffer.append("./" + jar + ":");
-			}
-
-			this.classpath = "-cp " + buffer.toString();
-		}
-
-		command.add("java " + this.classpath);
-		command.add(applicationMasterFqn);
-
-		command.add(this.applicationCommand.build());
-
-		command.add(" 1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + this.applicationName + "_MasterStdOut");
-		command.add(" 2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + this.applicationName + "_MasterStdErr");
-
-		if (logger.isInfoEnabled()){
-			StringBuilder commandBuffer = new StringBuilder();
-		    for (String str : command) {
-		    	commandBuffer.append(str).append(" ");
-		    }
-		    logger.info("ApplicationMaster launch command: " + command.toString());
-		}
-
-	    return command;
-	}
-
-	/**
-	 *
-	 */
-	private void addToLocalResources(FileSystem fs, String fileSrcPath, String fileDstPath, int appId, Map<String, LocalResource> localResources) {
-		String suffix = this.applicationName + "/" + appId + "/" + fileDstPath;
-		Path dst = new Path(fs.getHomeDirectory(), suffix);
-
-		try {
-			fs.copyFromLocalFile(new Path(fileSrcPath), dst);
-			FileStatus scFileStatus = fs.getFileStatus(dst);
-			LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(dst.toUri()),
-					LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, scFileStatus.getLen(), scFileStatus.getModificationTime());
-			localResources.put(fileDstPath, scRsrc);
-		}
-		catch (Exception e) {
-			throw new IllegalStateException("Failed to communicate with FileSystem: " + fs, e);
-		}
-		finally {
-			new File(fileSrcPath).delete();
-		}
-	}
-
-	/**
-	 *
-	 * @return
-	 */
-	private String generateJarFileName(){
-		StringBuffer nameBuffer = new StringBuffer();
-		nameBuffer.append(this.applicationName);
-		nameBuffer.append("_");
-		nameBuffer.append(UUID.randomUUID().toString());
-		nameBuffer.append(".jar");
-		return nameBuffer.toString();
 	}
 }
