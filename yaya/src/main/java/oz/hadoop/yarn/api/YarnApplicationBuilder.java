@@ -324,12 +324,12 @@ public class YarnApplicationBuilder {
 								logger.debug("Creating JAR: " + jarFileName);
 							}
 							File jarFile = JarUtils.toJar(f, jarFileName);
-							addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), appId.getId(), localResources);
+							this.addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), appId.getId(), localResources);
+							new File(jarFile.getAbsolutePath()).delete(); // will delete the generated JAR file
 						}
-						//TODO ensure the entire dev classpath is localized on the server
-//						else {
-//							addToLocalResources(fs, f.getAbsolutePath(), f.getName(), appId.getId(), localResources, null);
-//						}
+						else {
+							this.addToLocalResources(fs, f.getAbsolutePath(), f.getName(), appId.getId(), localResources);
+						}
 					}
 				}
 			    catch (Exception e) {
@@ -372,22 +372,13 @@ public class YarnApplicationBuilder {
 			 * @return
 			 */
 			private String calculateClassPath(Map<String, LocalResource> localResources) {
-				String classpath = null;
-				if ("true".equals(System.getProperty("local-cluster"))){
-					classpath = System.getProperty("java.class.path");
+				StringBuffer buffer = new StringBuffer();
+				for (String resource : localResources.keySet()) {
+					buffer.append("./" + resource + ":");
 				}
-				else {
-					String[] yarnClassPath = YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH;
-					StringBuffer buffer = new StringBuffer();
-					String delimiter = ":";
-					for (String value : yarnClassPath) {
-						buffer.append(value);
-						buffer.append(delimiter);
-					}
-					for (String resource : localResources.keySet()) {
-						buffer.append("./" + resource + ":");
-					}
-					classpath = buffer.toString();
+				String classpath = buffer.toString();
+				if (logger.isDebugEnabled()){
+					logger.debug("classpath");
 				}
 				return classpath;
 			}
@@ -417,9 +408,6 @@ public class YarnApplicationBuilder {
 				}
 				catch (Exception e) {
 					throw new IllegalStateException("Failed to communicate with FileSystem: " + fs, e);
-				}
-				finally {
-					new File(fileSrcPath).delete();
 				}
 			}
 

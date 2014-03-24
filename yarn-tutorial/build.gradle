@@ -1,4 +1,4 @@
-description = 'yarn-tutorial'
+description = 'yarn-sample'
 
 group = 'oz'
 
@@ -21,7 +21,7 @@ group = 'oz'
 
 repositories {
     mavenCentral()
-    //maven { url 'http://repo1.maven.org/maven2' } // needed for Log4J Extras
+    mavenLocal()
 }
 
 sourceSets {
@@ -33,10 +33,7 @@ sourceSets {
 }
 
 dependencies {
-	compile "org.apache.hadoop:hadoop-yarn-client:$hadoopVersion"
-	compile "org.apache.hadoop:hadoop-common:$hadoopVersion"
-	compile "org.apache.hadoop:hadoop-hdfs:$hadoopVersion"
-	testCompile "org.apache.hadoop:hadoop-yarn-server-tests:$hadoopVersion:tests"
+	compile "oz:yarn-tutorial:1.0.0.BUILD-SNAPSHOT"
 	testCompile "junit:junit-dep:$junitVersion"
 }
 
