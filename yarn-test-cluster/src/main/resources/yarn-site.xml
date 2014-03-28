@@ -13,6 +13,12 @@
   limitations under the License. See accompanying LICENSE file.
 -->
 <configuration>
+   <property>
+    <description>who will execute(launch) the containers.</description>
+    <name>yarn.nodemanager.container-executor.class</name>
+<!--     <value>oz.hadoop.yarn.test.cluster.InJvmContainerExecutor</value> -->
+    <value>org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor</value>
+  </property>
   <property>       
      <name>yarn.resourcemanager.resourcetracker.address</name>       
      <value>localhost:8025</value>  
@@ -33,6 +39,11 @@
    <value>localhost</value>
     <description>The hostname of the RM.</description>
  </property>
+ <property>
+    <description>The http address of the RM web application.</description>
+    <name>yarn.resourcemanager.webapp.address</name>
+    <value>${yarn.resourcemanager.hostname}:8080</value>
+  </property>
   <property>
     <name>yarn.scheduler.minimum-allocation-mb</name>
     <value>128</value>

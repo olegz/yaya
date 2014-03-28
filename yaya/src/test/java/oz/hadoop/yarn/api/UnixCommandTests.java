@@ -44,7 +44,7 @@ public class UnixCommandTests {
 	@Test
 	public void validateCommandWithDefaultContainerArguments(){
 		UnixCommand unixCommand = new UnixCommand("cal");
-		String command = unixCommand.build();
+		String command = unixCommand.build("hello", 1);
 		assertEquals("containerCount 1 memory 128 virtualCores 1 priority 0 amSpec oz.hadoop.yarn.api.ApplicationMasterSpec command cal", command);
 	}
 
@@ -55,7 +55,7 @@ public class UnixCommandTests {
 		unixCommand.setMemory(512);
 		unixCommand.setPriority(4);
 		unixCommand.setVirtualCores(4);
-		String command = unixCommand.build();
+		String command = unixCommand.build("hello", 1);
 		assertEquals("containerCount 3 memory 512 virtualCores 4 priority 4 amSpec oz.hadoop.yarn.api.ApplicationMasterSpec command ls", command);
 	}
 

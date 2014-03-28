@@ -24,6 +24,7 @@ import org.apache.commons.logging.LogFactory;
 
 import oz.hadoop.yarn.api.utils.NumberAssertUtils;
 import oz.hadoop.yarn.api.utils.ObjectAssertUtils;
+import oz.hadoop.yarn.api.utils.StringAssertUtils;
 
 /**
  *
@@ -41,6 +42,8 @@ public abstract class AbstractApplicationCommand {
 	private static final Log logger = LogFactory.getLog(AbstractApplicationCommand.class);
 
 	private final HashMap<String, Object> containerArguments;
+
+	private String finalCommand;
 
 
 	public AbstractApplicationCommand(){
@@ -90,17 +93,23 @@ public abstract class AbstractApplicationCommand {
 		this.containerArguments.put(name, value);
 	}
 
-	protected String build(){
-		StringBuffer commandBuffer = new StringBuffer();
-		for (Entry<String, Object> entry : this.containerArguments.entrySet()) {
-			commandBuffer.append(entry.getKey());
-			commandBuffer.append(" ");
-			commandBuffer.append(entry.getValue());
-			commandBuffer.append(" ");
-		}
-		String finalCommand = commandBuffer.toString().trim();
-		if (logger.isInfoEnabled()){
-			logger.info("Built command: " + finalCommand);
+	protected String build(String applicationMasterName, int id) {
+		if (StringAssertUtils.isEmpty(this.finalCommand)){
+			StringBuffer commandBuffer = new StringBuffer();
+			commandBuffer.append(applicationMasterName);
+			commandBuffer.append("\t");
+			commandBuffer.append(id);
+			commandBuffer.append("\t");
+			for (Entry<String, Object> entry : this.containerArguments.entrySet()) {
+				commandBuffer.append(entry.getValue());
+				commandBuffer.append("\t");
+			}
+
+			String finalCommand = commandBuffer.toString().trim();
+			if (logger.isInfoEnabled()){
+				logger.info("Built command: " + finalCommand);
+			}
+			this.finalCommand = finalCommand;
 		}
 		return finalCommand;
 	}

@@ -50,12 +50,12 @@
   </property>
   <property>
     <name>yarn.scheduler.minimum-allocation-vcores</name>
-    <value>1</value>
+    <value>4</value>
     <description>The minimum allocation for every container request at the RM, in terms of virtual CPU cores. Requests lower than this won't take effect, and the specified value will get allocated the minimum.</description>
   </property>
   <property>
     <name>yarn.scheduler.maximum-allocation-vcores</name>
-    <value>2</value>
+    <value>4</value>
     <description>The maximum allocation for every container request at the RM, in terms of virtual CPU cores. Requests higher than this won't take effect, and will get capped to this value.</description>
   </property>
   <property>

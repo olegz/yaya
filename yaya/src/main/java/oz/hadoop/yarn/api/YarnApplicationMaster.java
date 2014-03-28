@@ -16,17 +16,25 @@
 package oz.hadoop.yarn.api;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
+import org.apache.hadoop.yarn.api.records.LocalResource;
+import org.apache.hadoop.yarn.api.records.LocalResourceType;
+import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
@@ -35,6 +43,7 @@ import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.impl.NMClientAsyncImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
+import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 /**
@@ -75,21 +84,32 @@ final class YarnApplicationMaster {
 
 	private final ApplicationMasterSpec applicationMasterSpec;
 
+	private final String applicationMasterName;
+
+	private final String applicationMasterId;
+
+	private final ContainerLaunchContext applicationContainer;
+
 	/**
 	 *
 	 */
 	YarnApplicationMaster(String[] args) {
-		this.containerCount = Integer.parseInt(args[1]);
+		this.applicationMasterName = args[0];
+		this.applicationMasterId = args[1];
+		this.containerCount = Integer.parseInt(args[2]);
 		this.memory = Integer.parseInt(args[3]);
-		this.virtualCores = Integer.parseInt(args[5]);
-		this.priority = Integer.parseInt(args[7]);
+		this.virtualCores = Integer.parseInt(args[4]);
+		this.priority = Integer.parseInt(args[5]);
+
 		try {
-			this.applicationMasterSpec = (ApplicationMasterSpec) Class.forName(args[9]).newInstance();
+			this.applicationMasterSpec = (ApplicationMasterSpec) Class.forName(args[6]).newInstance();
 		}
 		catch (Exception e) {
 			throw new IllegalArgumentException("Failed to create an instance of ApplicationMasterSpec", e);
 		}
-		this.command = args[11];
+
+		this.command = args[7];
+
 		this.yarnConfig = new YarnConfiguration();
 
 		this.executor = Executors.newFixedThreadPool(this.containerCount);
@@ -98,15 +118,26 @@ final class YarnApplicationMaster {
 		this.nodeManagerCallbaclHandler = this.applicationMasterSpec.buildNodeManagerCallbackHandler(this);
 		this.nodeManagerClient = new NMClientAsyncImpl(this.nodeManagerCallbaclHandler);
 		this.resourceManagerClient = AMRMClientAsync.createAMRMClientAsync(1000, this.applicationMasterSpec.buildResourceManagerCallbackHandler(this));
+
+		this.applicationContainer = Records.newRecord(ContainerLaunchContext.class);
+		Map<String, LocalResource> localResources = YarnApplicationMaster.this.buildLocalResources();
+		applicationContainer.setLocalResources(localResources);
 	}
 
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) throws Exception {
+		logger.info("###### Starting APPLICATION MASTER ######");
+		if (logger.isDebugEnabled()){
+			logger.debug("SYSTEM PROPERTIES:\n" + System.getProperties());
+			logger.debug("ENVIRONMENT VARIABLES:\n" + System.getenv());
+		}
+
 		YarnApplicationMaster applicationMaster = new YarnApplicationMaster(args);
 		applicationMaster.start(); // will block until
 		applicationMaster.stop();
+		logger.info("###### Stopped APPLICATION MASTER ######");
 	}
 
 	/**
@@ -125,13 +156,28 @@ final class YarnApplicationMaster {
 		this.executor.execute(new Runnable() {
 			@Override
 			public void run() {
-				logger.info("Setting up container launch container for containerid:" + allocatedContainer.getId());
-				ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
-				ctx.setCommands(Collections.singletonList(command +
-						" 1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout" +
-						" 2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr"));
+				StringBuffer commandBuffer = new StringBuffer();
+				commandBuffer.append(YarnApplicationMaster.this.command);
+				commandBuffer.append(" 1>");
+				commandBuffer.append(ApplicationConstants.LOG_DIR_EXPANSION_VAR);
+				commandBuffer.append("/stdout");
+				commandBuffer.append(" 2>");
+				commandBuffer.append(ApplicationConstants.LOG_DIR_EXPANSION_VAR);
+				commandBuffer.append("/stderr");
+				String applicationContainerLaunchCommand = commandBuffer.toString();
 
-				YarnApplicationMaster.this.nodeManagerClient.startContainerAsync(allocatedContainer, ctx);
+				if (logger.isInfoEnabled()){
+					logger.info("Setting up application container:" + allocatedContainer.getId());
+					logger.info("Application Container launch command: " + applicationContainerLaunchCommand);
+				}
+
+//				applicationContainer.getEnvironment().put("CONTAINER_TYPE", "JAVA");
+//				applicationContainer.getEnvironment().put("MAIN", YarnApplicationMaster.class.getName());
+//				applicationContainer.getEnvironment().put("MAIN_ARG", launchCommands.get("AC"));
+
+				applicationContainer.setCommands(Collections.singletonList(applicationContainerLaunchCommand));
+
+				YarnApplicationMaster.this.nodeManagerClient.startContainerAsync(allocatedContainer, applicationContainer);
 			}
 		});
 	}
@@ -142,6 +188,31 @@ final class YarnApplicationMaster {
 	 */
 	protected void signalContainerCompletion(ContainerStatus containerStatus) {
 		this.containerMonitor.countDown();
+	}
+
+	/**
+	 *
+	 */
+	private Map<String, LocalResource> buildLocalResources() {
+		try {
+			Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+			String suffix = this.applicationMasterName + "_master/" + this.applicationMasterId + "/";
+			System.out.println("### Suffix: " + suffix);
+			FileSystem fs = FileSystem.get(this.yarnConfig);
+			Path dst = new Path(fs.getHomeDirectory(), suffix);
+			FileStatus[] deployedResources = fs.listStatus(dst);
+			for (FileStatus fileStatus : deployedResources) {
+				System.out.println("### FileStatus: " + fileStatus.getPath());
+				LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(fileStatus.getPath().toUri()),
+						LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, fileStatus.getLen(), fileStatus.getModificationTime());
+				localResources.put(fileStatus.getPath().getName(), scRsrc);
+			}
+			System.out.println("### localResources: " + localResources);
+			return localResources;
+		}
+		catch (Exception e) {
+			throw new IllegalStateException("Failed to communicate with FileSystem", e);
+		}
 	}
 
 	/**
@@ -166,14 +237,13 @@ final class YarnApplicationMaster {
 
 		for (int i = 0; i < this.containerCount; ++i) {
 			ContainerRequest containerRequest = this.createConatinerRequest();
+
 			this.resourceManagerClient.addContainerRequest(containerRequest);
-			logger.info("Allocation container " + i + " - " + containerRequest);
+			logger.info("Allocating container " + i + " - " + containerRequest);
 		}
 
 		try {
 			this.containerMonitor.await();
-			logger.info("Shutting down executor");
-			this.executor.shutdown();
 		}
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
@@ -186,13 +256,15 @@ final class YarnApplicationMaster {
 	 */
 	private void stop(){
 		try {
+			logger.info("Shutting down executor");
+			this.executor.shutdown();
 			logger.info("Unregistering the Application Master");
 			this.resourceManagerClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED,
 					"Application " + this.getClass().getName() + " has finished" , null);
 			logger.info("Shutting down Node Manager Client");
-			this.nodeManagerClient.close();
+			this.nodeManagerClient.stop();
 			logger.info("Shutting down Resource Manager Client");
-			this.resourceManagerClient.close();
+			this.resourceManagerClient.stop();
 			logger.info("Shut down");
 		}
 		catch (Exception e) {

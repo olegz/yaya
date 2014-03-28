@@ -16,9 +16,9 @@
 package oz.hadoop.yarn.api;
 
 import java.io.File;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -95,6 +95,8 @@ public class YarnApplicationBuilder {
 
 	private final Resource capability;
 
+	private String javaCommand;
+
 	private String queueName;
 
 	private int maxAttempts;
@@ -123,6 +125,7 @@ public class YarnApplicationBuilder {
 		this.applicationName = applicationName;
 		this.applicationCommand = applicationCommand;
 		this.yarnConfig = new YarnConfiguration();
+		this.javaCommand = "java";
 
 		this.capability = Records.newRecord(Resource.class);
 		this.capability.setMemory(64);
@@ -188,6 +191,22 @@ public class YarnApplicationBuilder {
 	public YarnApplicationBuilder setMemory(int memory) {
 		NumberAssertUtils.assertGreaterThenZero(memory);
 		this.capability.setMemory(memory);
+		return this;
+	}
+
+	/**
+	 * Absolute path to a java command. By default it will simply use 'java', but in the cases where you
+	 * have multiple JVMs installed you may want to invoke this setter to point to a specific one.
+	 * This setting has no effect if using local mini-cluster with oz.hadoop.yarn.test.cluster.InJvmContainerExecutor
+	 * configured as 'yarn.nodemanager.container-executor.class' since execution of Application Master will
+	 * happen in the same JVM as the server.
+	 *
+	 * @param javaCommand
+	 * @return
+	 */
+	public YarnApplicationBuilder setJavaCommandAbsolutePath(String javaCommand) {
+		StringAssertUtils.assertNotEmptyAndNoSpaces(javaCommand);
+		this.javaCommand = javaCommand;
 		return this;
 	}
 
@@ -289,8 +308,12 @@ public class YarnApplicationBuilder {
 			    }
 			    applicationMasterContainer.setLocalResources(localResources);
 
-			    List<String> launchCommand = this.createApplicationMasterLaunchCommand(appId, localResources);
-				applicationMasterContainer.setCommands(launchCommand);
+			    Map<String, String> launchCommands = this.createApplicationMasterLaunchCommand(appId, localResources);
+				applicationMasterContainer.setCommands(Collections.singletonList(launchCommands.get("AM")));
+
+				applicationMasterContainer.getEnvironment().put("CONTAINER_TYPE", "JAVA");
+			    applicationMasterContainer.getEnvironment().put("MAIN", YarnApplicationMaster.class.getName());
+			    applicationMasterContainer.getEnvironment().put("MAIN_ARG", launchCommands.get("AC"));
 
 				Priority priority = Records.newRecord(Priority.class);
 			    priority.setPriority(YarnApplicationBuilder.this.priority);
@@ -312,9 +335,11 @@ public class YarnApplicationBuilder {
 			 * TODO make it more general to allow other resources
 			 */
 			private Map<String, LocalResource> createLocalResources(ApplicationId appId) {
-				Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+				Map<String, LocalResource> localResources = new LinkedHashMap<String, LocalResource>();
+
 				try {
 					FileSystem fs = FileSystem.get(YarnApplicationBuilder.this.yarnConfig);
+
 					String[] cp = System.getProperty("java.class.path").split(":");
 					for (String v : cp) {
 						File f = new File(v);
@@ -325,7 +350,11 @@ public class YarnApplicationBuilder {
 							}
 							File jarFile = JarUtils.toJar(f, jarFileName);
 							this.addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), appId.getId(), localResources);
-							new File(jarFile.getAbsolutePath()).delete(); // will delete the generated JAR file
+							try {
+								new File(jarFile.getAbsolutePath()).delete(); // will delete the generated JAR file
+							} catch (Exception e) {
+								logger.warn("Failed to delete generated JAR file: " + jarFile.getAbsolutePath(), e);
+							}
 						}
 						else {
 							this.addToLocalResources(fs, f.getAbsolutePath(), f.getName(), appId.getId(), localResources);
@@ -341,29 +370,51 @@ public class YarnApplicationBuilder {
 			/**
 			 * Will generate the final launch command for this ApplicationMaster
 			 */
-			private List<String> createApplicationMasterLaunchCommand(ApplicationId appId, Map<String, LocalResource> localResources) {
-				List<String> command = new ArrayList<String>();
+			private Map<String, String> createApplicationMasterLaunchCommand(ApplicationId appId, Map<String, LocalResource> localResources) {
+				Map<String, String> commands = new HashMap<String, String>();
 
 				String classpath = this.calculateClassPath(localResources);
 
-				command.add("java -cp " + classpath);
-				command.add(YarnApplicationBuilder.applicationMasterFqn);
+
+				// propagate the classpath to the actual application container command
 				if (YarnApplicationBuilder.this.applicationCommand instanceof JavaCommand){
 					((JavaCommand)YarnApplicationBuilder.this.applicationCommand).setClasspath(classpath);
 				}
-				command.add(YarnApplicationBuilder.this.applicationCommand.build());
-				command.add(" 1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + YarnApplicationBuilder.this.applicationName + "_MasterStdOut");
-				command.add(" 2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + YarnApplicationBuilder.this.applicationName + "_MasterStdErr");
+				String applicationContainerLaunchCommand = YarnApplicationBuilder.this.applicationCommand.build(applicationName, appId.getId());
 
+				//String applicationContainerLaunchCommand = YarnApplicationBuilder.this.applicationCommand.build(applicationName, appId.getId());
 				if (logger.isInfoEnabled()){
-					StringBuilder commandBuffer = new StringBuilder();
-				    for (String str : command) {
-				    	commandBuffer.append(str).append(" ");
-				    }
-				    logger.info("ApplicationMaster launch command: " + commandBuffer.toString());
+					logger.info("Application container launch command: " + applicationContainerLaunchCommand);
 				}
 
-			    return command;
+				StringBuffer commandBuffer = new StringBuffer();
+				commandBuffer.append(YarnApplicationBuilder.this.javaCommand);
+				commandBuffer.append(" -cp ");
+				commandBuffer.append(classpath);
+				commandBuffer.append(" ");
+				commandBuffer.append(YarnApplicationBuilder.applicationMasterFqn);
+				commandBuffer.append(" ");
+				commandBuffer.append(applicationContainerLaunchCommand);
+				commandBuffer.append(" ");
+				commandBuffer.append(" 1>");
+				commandBuffer.append(ApplicationConstants.LOG_DIR_EXPANSION_VAR);
+				commandBuffer.append("/");
+				commandBuffer.append(YarnApplicationBuilder.this.applicationName);
+				commandBuffer.append("_MasterStdOut");
+				commandBuffer.append(" 2>");
+				commandBuffer.append(ApplicationConstants.LOG_DIR_EXPANSION_VAR);
+				commandBuffer.append("/");
+				commandBuffer.append(YarnApplicationBuilder.this.applicationName);
+				commandBuffer.append("_MasterStdErr");
+
+				String applicationMasterLaunchCommand = commandBuffer.toString();
+				commands.put("AM",  applicationMasterLaunchCommand); // for ApplicationMaster
+				commands.put("AC",  applicationContainerLaunchCommand); // for ApplicationContainer
+				if (logger.isInfoEnabled()){
+					logger.info("Application Master launch command: " + applicationMasterLaunchCommand);
+				}
+
+			    return commands;
 			}
 
 			/**
@@ -378,7 +429,7 @@ public class YarnApplicationBuilder {
 				}
 				String classpath = buffer.toString();
 				if (logger.isDebugEnabled()){
-					logger.debug("classpath");
+					logger.debug("classpath: " + classpath);
 				}
 				return classpath;
 			}
@@ -396,7 +447,7 @@ public class YarnApplicationBuilder {
 			 *
 			 */
 			private void addToLocalResources(FileSystem fs, String fileSrcPath, String fileDstPath, int appId, Map<String, LocalResource> localResources) {
-				String suffix = YarnApplicationBuilder.this.applicationName + "/" + appId + "/" + fileDstPath;
+				String suffix = YarnApplicationBuilder.this.applicationName + "_master/" + appId + "/" + fileDstPath;
 				Path dst = new Path(fs.getHomeDirectory(), suffix);
 
 				try {

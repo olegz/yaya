@@ -68,7 +68,7 @@ public class JavaCommandTests {
 	@Test
 	public void validateValidMain(){
 		JavaCommand javaCommand = new JavaCommand(ValidMain.class);
-		String command = javaCommand.build();
+		String command = javaCommand.build("hello", 1);
 		assertEquals("containerCount 1 memory 128 virtualCores 1 priority 0 " +
 				"amSpec oz.hadoop.yarn.api.ApplicationMasterSpec command 'java oz.hadoop.yarn.api.JavaCommandTests$ValidMain'", command);
 	}

@@ -64,8 +64,12 @@ public class JavaCommand extends AbstractApplicationCommand {
 		this.commandArguments.add(commandArgument);
 	}
 
+	/**
+	 *
+	 * @return
+	 */
 	@Override
-	protected String build() {
+	protected String build(String applicationMasterName, int id) {
 		StringBuffer commandBuffer = new StringBuffer();
 		commandBuffer.append(this.javaCommand);
 		commandBuffer.append(" ");
@@ -74,6 +78,7 @@ public class JavaCommand extends AbstractApplicationCommand {
 			commandBuffer.append(this.classpath);
 			commandBuffer.append(" ");
 		}
+
 		commandBuffer.append(this.mainClassName);
 
 		for (String commandArgument : this.commandArguments) {
@@ -82,7 +87,7 @@ public class JavaCommand extends AbstractApplicationCommand {
 		}
 		this.setFinalCommand(commandBuffer.toString());
 
-		return super.build();
+		return super.build(applicationMasterName, id);
 	}
 
 	protected void setClasspath(String classpath) {

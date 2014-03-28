@@ -44,7 +44,8 @@ public class ObjectAssertUtils {
 		boolean valid = false;
 		ObjectAssertUtils.assertNotNull(clazz);
 		try {
-			Method m = clazz.getMethod("main", new Class[]{String[].class});
+			//Method m = clazz.getMethod("main", new Class[]{String[].class});
+			Method m = clazz.getMethod("main", new Class[] {String[].class});
 			Class<?> returnType = m.getReturnType();
 			if (m.getModifiers() == (Modifier.STATIC | Modifier.PUBLIC) && returnType.getName().equals("void")){
 				valid = true;
