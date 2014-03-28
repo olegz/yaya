@@ -49,7 +49,7 @@ public abstract class AbstractApplicationCommand {
 	public AbstractApplicationCommand(){
 		this.containerArguments = new LinkedHashMap<String, Object>();
 		this.containerArguments.put(CONTAINER_COUNT, 1);
-		this.containerArguments.put(MEMORY, 128);
+		this.containerArguments.put(MEMORY, 256);
 		this.containerArguments.put(VIRTUAL_CORES, 1);
 		this.containerArguments.put(PRIORITY, 0);
 		this.containerArguments.put(AM_SPEC, ApplicationMasterSpec.class.getName());

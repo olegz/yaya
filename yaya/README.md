@@ -1,8 +1,6 @@
-#### _Try and YARN in less then 5_
-This project has two main goals.
+### YAYA - _Yet Another Yarn API_ 
 
-1. _To serve as a **tutorial** for those who would like to learn YARN_
-2. _An attempt to define a **simpler (developer friendly) YARN API**, that the end user can use._ -  _Yet Another Yarn API_ (YAYA?)
+**_YAYA_** is a set of common abstractions and an API to simplify development of applications using **YARN** 
 
 ### YARN could and should be as simple as:
 ```

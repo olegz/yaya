@@ -128,7 +128,7 @@ public class YarnApplicationBuilder {
 		this.javaCommand = "java";
 
 		this.capability = Records.newRecord(Resource.class);
-		this.capability.setMemory(64);
+		this.capability.setMemory(2048);
 		this.capability.setVirtualCores(1);
 		this.maxAttempts = 1;
 		this.queueName = "default";
