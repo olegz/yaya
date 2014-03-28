@@ -1,0 +1,237 @@
+description = 'Yarn Tutorial and API'
+
+apply plugin: 'base'
+apply plugin: 'idea'
+
+buildscript {
+	repositories {
+    	mavenCentral()
+	}
+}
+
+allprojects {
+	group = 'oz'
+	repositories {
+		mavenCentral()
+		mavenLocal()
+	}
+}
+
+subprojects { subproject ->
+
+	apply plugin: 'java'
+	apply plugin: 'eclipse'
+	apply plugin: 'idea'
+	apply plugin: 'maven'
+
+	ext {
+		junitVersion = '4.8.2'
+		log4jVersion = '1.2.12'
+		slf4jVersion = '1.7.2'
+		hadoopVersion = '2.3.0'
+	}
+
+	sourceSets {
+		test {
+			resources {
+				srcDirs = ['src/test/resources', 'src/test/java']
+			}
+		}
+	}
+
+	// dependencies that are common across all java projects
+	dependencies {
+	    compile "org.slf4j:slf4j-api:$slf4jVersion"
+	    compile "org.slf4j:slf4j-log4j12:$slf4jVersion"
+		testCompile "junit:junit-dep:$junitVersion"
+		testCompile "log4j:log4j:$log4jVersion"
+	}
+
+	// enable all compiler warnings; individual projects may customize further
+	ext.xLintArg = '-Xlint:all'
+	[compileJava, compileTestJava]*.options*.compilerArgs = [xLintArg]
+
+	test {
+		// suppress all console output during testing unless running `gradle -i`
+		logging.captureStandardOutput(LogLevel.INFO)
+	}
+
+	task sourcesJar(type: Jar) {
+		classifier = 'sources'
+		from sourceSets.main.allJava
+	}
+
+	task javadocJar(type: Jar) {
+		classifier = 'javadoc'
+		from javadoc
+	}
+
+	artifacts {
+		archives sourcesJar
+		archives javadocJar
+	}
+}
+
+project('yaya') {
+	description = 'YARN API'
+	configurations {
+	   	all*.exclude group: "com.jcraft", module: "jsch"
+		all*.exclude group: "org.apache.hadoop", module: "hadoop-yarn-server-common"
+		all*.exclude group: "org.apache.hadoop", module: "hadoop-yarn-server-web-proxy"
+		all*.exclude group: "com.sun.jersey", module: "jersey-client"
+		all*.exclude group: "com.sun.jersey", module: "jersey-core"
+		all*.exclude group: "com.sun.jersey", module: "jersey-server"
+		all*.exclude group: "com.sun.jersey", module: "jersey-json"
+		all*.exclude group: "com.sun.jersey.contribs", module: "jersey-guice"
+		all*.exclude group: "com.google.inject", module: "guice"
+		all*.exclude group: "com.google.inject.extensions", module: "guice-servlet"
+		all*.exclude group: "com.google.code.findbugs", module: "jsr305"
+		all*.exclude group: "org.apache.avro", module: "avro"
+		all*.exclude group: "org.xerial.snappy", module: "snappy-java"
+		all*.exclude group: "com.thoughtworks.paranamer", module: "paranamer"
+		all*.exclude group: "net.java.dev.jets3t", module: "jets3t"
+		all*.exclude group: "org.apache.httpcomponents", module: "httpclient"
+		all*.exclude group: "org.apache.httpcomponents", module: "httpcore"
+		all*.exclude group: "com.jamesmurty.utils", module: "java-xmlbuilder"
+		all*.exclude group: "javax.servlet.jsp", module: "jsp-api"
+		all*.exclude group: "javax.servlet", module: "servlet-api"
+		all*.exclude group: "tomcat", module: "jasper-runtime"
+		all*.exclude group: "tomcat", module: "jasper-compiler"
+		all*.exclude group: "org.mortbay.jetty", module: "jetty"
+		all*.exclude group: "org.mortbay.jetty", module: "jetty-util"
+		all*.exclude group: "xmlenc", module: "xmlenc"
+		all*.exclude group: "org.tukaani", module: "xz"
+		all*.exclude group: "asm", module: "asm"	
+		all*.exclude group: "org.codehaus.jackson", module: "jackson-core-asl"
+		all*.exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
+		all*.exclude group: "org.codehaus.jettison", module: "jettison"
+		all*.exclude group: "javax.xml.stream", module: "stax-api"
+		all*.exclude group: "javax.xml.bind", module: "jaxb-api"
+		all*.exclude group: "commons-el", module: "commons-el"
+		all*.exclude group: "commons-daemon", module: "commons-daemon"
+		all*.exclude group: "commons-httpclient", module: "commons-httpclient"
+		all*.exclude group: "commons-beanutils", module: "commons-beanutils-core"
+		all*.exclude group: "commons-digester", module: "commons-digester"
+		all*.exclude group: "org.apache.commons", module: "commons-compress"
+		all*.exclude group: "org.apache.commons", module: "commons-math3"
+
+		//all*.exclude group: "commons-cli", module: "commons-cli"
+		//all*.exclude group: "commons-collections", module: "commons-collections"
+		//all*.exclude group: "commons-configuration", module: "commons-configuration"
+		//all*.exclude group: "commons-codec", module: "commons-codec"
+		//all*.exclude group: "org.slf4j", module: "slf4j-log4j12"
+		//all*.exclude group: "org.slf4j", module: "slf4j-api"
+	}
+	dependencies {
+	    compile "org.apache.hadoop:hadoop-yarn-client:$hadoopVersion"
+		compile "org.apache.hadoop:hadoop-common:$hadoopVersion"
+		compile "org.apache.hadoop:hadoop-hdfs:$hadoopVersion"
+		compile "org.apache.hadoop:hadoop-yarn-server-nodemanager:$hadoopVersion"
+		compile "org.apache.hadoop:hadoop-yarn-server-resourcemanager:$hadoopVersion"
+	}
+}
+
+project('yaya-demo') {
+	description = 'Demo of YARN API'
+	dependencies {
+		compile project(":yaya")
+		//compile project(":yarn-test-cluster")
+		//compile "oz:yarn-test-cluster:$version"
+		//compile "oz:yaya:$version"
+	}
+}
+
+project('yarn-test-cluster') {
+	description = 'Local YARN cluster'
+	dependencies {
+	    compile "org.apache.hadoop:hadoop-yarn-client:$hadoopVersion"
+	    compile "org.apache.hadoop:hadoop-common:$hadoopVersion"
+		compile "org.apache.hadoop:hadoop-hdfs:$hadoopVersion"
+		compile "org.apache.hadoop:hadoop-yarn-server-tests:$hadoopVersion:tests"
+		compile "org.apache.hadoop:hadoop-yarn-server-resourcemanager:$hadoopVersion"
+	}
+}
+
+task api(type: Javadoc) {
+	group = 'Documentation'
+	description = 'Generates aggregated Javadoc API documentation.'
+	title = "${rootProject.description} ${version} API"
+	options.memberLevel = org.gradle.external.javadoc.JavadocMemberLevel.PROTECTED
+	options.author = true
+	options.header = rootProject.description
+	options.overview = 'src/api/overview.html'
+	source subprojects.collect { project ->
+		project.sourceSets.main.allJava
+	}
+	destinationDir = new File(buildDir, "api")
+	classpath = files(subprojects.collect { project ->
+		project.sourceSets.main.compileClasspath
+	})
+}
+
+task distZip(type: Zip) {
+	group = 'Distribution'
+	classifier = 'dist'
+	description = "Builds -${classifier} archive, containing all jars and docs, " +
+		"suitable for community download page."
+
+	ext.baseDir = "${project.name}-${project.version}";
+
+	from('src/dist') {
+		include 'readme.txt'
+		include 'license.txt'
+		include 'notice.txt'
+		into "${baseDir}"
+	}
+
+	subprojects.each { subproject ->
+		into ("${baseDir}/libs") {
+			from subproject.jar
+			from subproject.sourcesJar
+			from subproject.javadocJar
+		}
+	}
+}
+
+// Create an optional "with dependencies" distribution.
+// Not published by default; only for use when building from source.
+task depsZip(type: Zip, dependsOn: distZip) { zipTask ->
+	group = 'Distribution'
+	classifier = 'dist-with-deps'
+	description = "Builds -${classifier} archive, containing everything " +
+		"in the -${distZip.classifier} archive plus all dependencies."
+
+	from zipTree(distZip.archivePath)
+
+	gradle.taskGraph.whenReady { taskGraph ->
+		if (taskGraph.hasTask(":${zipTask.name}")) {
+			def projectNames = rootProject.subprojects*.name
+			def artifacts = new HashSet()
+			subprojects.each { subproject ->
+				subproject.configurations.runtime.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+					def dependency = artifact.moduleVersion.id
+					if (!projectNames.contains(dependency.name)) {
+						artifacts << artifact.file
+					}
+				}
+			}
+
+			zipTask.from(artifacts) {
+				into "${distZip.baseDir}/deps"
+			}
+		}
+	}
+}
+
+artifacts {
+	archives distZip
+}
+
+task dist(dependsOn: assemble) {
+	group = 'Distribution'
+	description = 'Builds -dist, -docs and -schema distribution archives.'
+}
+
+task wrapper(type: Wrapper) {
+	description = 'Generates gradlew[.bat] scripts'
+}

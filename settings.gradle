@@ -1,0 +1,6 @@
+rootProject.name = 'yarn-tutorial'
+
+include 'yaya'
+include 'yaya-demo'
+include 'yarn-test-cluster'
+

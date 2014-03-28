@@ -15,24 +15,29 @@
 <configuration>
   <property>       
      <name>yarn.resourcemanager.resourcetracker.address</name>       
-     <value>0.0.0.0:8025</value>  
+     <value>hadoop-node-one:8025</value>  
      <description>Enter your ResourceManager hostname.</description>
   </property>
   <property>       
      <name>yarn.resourcemanager.scheduler.address</name>       
-     <value>0.0.0.0:8035</value>  
+     <value>hadoop-node-one:8035</value>  
      <description>Enter your ResourceManager hostname.</description>
   </property>
   <property>       
     <name>yarn.resourcemanager.address</name>       
-    <value>0.0.0.0:8055</value>  
+    <value>hadoop-node-one:8055</value>  
     <description>Enter your ResourceManager hostname.</description>
   </property>
   <property>
    <name>yarn.resourcemanager.hostname</name>
-   <value>0.0.0.0</value>
+   <value>hadoop-node-one</value>
     <description>The hostname of the RM.</description>
  </property>
+<property>
+    <name>yarn.nodemanager.aux-services</name>
+    <value>mapreduce_shuffle</value>
+    <description>shuffle service that needs to be set for Map Reduce to run </description>
+  </property>
   <property>
     <name>yarn.scheduler.minimum-allocation-mb</name>
     <value>128</value>
@@ -45,12 +50,12 @@
   </property>
   <property>
     <name>yarn.scheduler.minimum-allocation-vcores</name>
-    <value>1</value>
+    <value>4</value>
     <description>The minimum allocation for every container request at the RM, in terms of virtual CPU cores. Requests lower than this won't take effect, and the specified value will get allocated the minimum.</description>
   </property>
   <property>
     <name>yarn.scheduler.maximum-allocation-vcores</name>
-    <value>2</value>
+    <value>4</value>
     <description>The maximum allocation for every container request at the RM, in terms of virtual CPU cores. Requests higher than this won't take effect, and will get capped to this value.</description>
   </property>
   <property>
