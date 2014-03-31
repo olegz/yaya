@@ -18,7 +18,7 @@ YarnApplication yarnApplication =
 yarnApplication.launch();
 
 ```
-for Java here is a sample implementation of _MyJavaContainer__ 
+for Java here is a sample implementation of _MyJavaContainer_
 
 ```
 private static class MyJavaContainer implements JavaApplicationContainer {
