@@ -15,24 +15,18 @@
  */
 package oz.hadoop.yarn.api;
 
-import oz.hadoop.yarn.api.utils.StringAssertUtils;
 
 /**
  * @author Oleg Zhurakousky
  *
  */
-public class UnixCommand extends AbstractApplicationCommand {
-	/**
-	 * If command contains multiple tokens (e.g., "ls -all"), it
-	 * will be wrapped in single quotes.
-	 *
-	 * @param command
-	 */
-	public UnixCommand(String command) {
-		super();
-		StringAssertUtils.assertNotEmpty(command);
-		StringAssertUtils.assertNotEmpty(command.trim());
-		this.setFinalCommand(command);
-	}
+public interface JavaApplicationContainer {
 
+	/**
+	 * The Map values could be either Strings or List of Strings or a Map
+	 * which follows the same schema.
+	 *
+	 * @param arguments
+	 */
+	public void launch(PrimitiveImmutableTypeMap arguments);
 }

@@ -16,27 +16,27 @@
    <property>
     <description>who will execute(launch) the containers.</description>
     <name>yarn.nodemanager.container-executor.class</name>
-<!--     <value>oz.hadoop.yarn.test.cluster.InJvmContainerExecutor</value> -->
-    <value>org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor</value>
+    <value>oz.hadoop.yarn.test.cluster.InJvmContainerExecutor</value>
+<!--     <value>org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor</value> -->
   </property>
   <property>       
      <name>yarn.resourcemanager.resourcetracker.address</name>       
-     <value>localhost:8025</value>  
+     <value>0.0.0.0:8025</value>  
      <description>Enter your ResourceManager hostname.</description>
   </property>
   <property>       
      <name>yarn.resourcemanager.scheduler.address</name>       
-     <value>localhost:8035</value>  
+     <value>0.0.0.0:8035</value>  
      <description>Enter your ResourceManager hostname.</description>
   </property>
   <property>       
     <name>yarn.resourcemanager.address</name>       
-    <value>localhost:8055</value>  
+    <value>0.0.0.0:8055</value>  
     <description>Enter your ResourceManager hostname.</description>
   </property>
   <property>
    <name>yarn.resourcemanager.hostname</name>
-   <value>localhost</value>
+   <value>0.0.0.0</value>
     <description>The hostname of the RM.</description>
  </property>
  <property>

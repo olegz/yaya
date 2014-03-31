@@ -24,7 +24,6 @@ import java.net.URLClassLoader;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -108,7 +107,7 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 			String userName, String appId, final Path containerWorkDir,
 			List<String> localDirs, List<String> logDirs) throws IOException {
 
-		if ("JAVA".equalsIgnoreCase(container.getLaunchContext().getEnvironment().get("CONTAINER_TYPE"))){
+		if ("JAVA".equalsIgnoreCase(container.getLaunchContext().getEnvironment().get("containerType"))){
 			this.prepareContainerDirectories(container, nmPrivateContainerScriptPath, nmPrivateTokensPath,
 					userName, appId, containerWorkDir, localDirs, logDirs);
 			return this.launchJavaContainer(container, containerWorkDir);
@@ -156,7 +155,8 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 					}
 					try {
 						additionalClassPathUrls.add(path.toUri().toURL());
-					} catch (Exception e) {
+					}
+					catch (Exception e) {
 						throw new IllegalArgumentException(e);
 					}
 				}
@@ -171,19 +171,16 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 		Map<String, String> environment = container.getLaunchContext().getEnvironment();
 		try {
 			URLClassLoader cl = new URLClassLoader(additionalClassPathUrls.toArray(new URL[] {}));
-			String main = environment.get("MAIN");
+			String main = environment.get("containerLauncher");
 			Class<?> amClass = Class.forName(main, true, cl);
 			Method mainMethod = amClass.getMethod("main", new Class[] {String[].class});
 			mainMethod.setAccessible(true);
-			String mainArgs = environment.get("MAIN_ARG");
-			//containerCount, memory, virtualCores, priority, amSpec, command
-			String[] arguments = mainArgs.split("\t");
-
+			String mainArgs = environment.get("containerArguments");
+			String[] arguments = new String[]{mainArgs};
 			mainMethod.invoke(null, (Object) arguments);
-			System.out.println();
 		}
 		catch (Exception e) {
-			logger.error("Failed to laumch container " + container, e);
+			logger.error("Failed to launch container " + container, e);
 			return -9;
 		}
 		return 0;
@@ -310,8 +307,6 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 
 	/**
 	 *
-	 * @param container
-	 * @return
 	 */
 	private Set<Path> getIncomingClassPathEntries(Container container) {
 		Map<Path, List<String>> localizedResources = this.getLocalResources(container);
@@ -321,8 +316,6 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 
 	/**
 	 *
-	 * @param container
-	 * @return
 	 */
 	@SuppressWarnings("unchecked")
 	private Map<Path, List<String>> getLocalResources(Container container) {
@@ -335,45 +328,6 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
-		}
-	}
-
-	private void setEnv(Map<String, String> newenv) {
-		try {
-			Class<?> processEnvironmentClass = Class
-					.forName("java.lang.ProcessEnvironment");
-			Field theEnvironmentField = processEnvironmentClass
-					.getDeclaredField("theEnvironment");
-			theEnvironmentField.setAccessible(true);
-			Map<String, String> env = (Map<String, String>) theEnvironmentField
-					.get(null);
-			env.putAll(newenv);
-			Field theCaseInsensitiveEnvironmentField = processEnvironmentClass
-					.getDeclaredField("theCaseInsensitiveEnvironment");
-			theCaseInsensitiveEnvironmentField.setAccessible(true);
-			Map<String, String> cienv = (Map<String, String>) theCaseInsensitiveEnvironmentField
-					.get(null);
-			cienv.putAll(newenv);
-		} catch (NoSuchFieldException e) {
-			try {
-				Class[] classes = Collections.class.getDeclaredClasses();
-				Map<String, String> env = System.getenv();
-				for (Class cl : classes) {
-					if ("java.util.Collections$UnmodifiableMap".equals(cl
-							.getName())) {
-						Field field = cl.getDeclaredField("m");
-						field.setAccessible(true);
-						Object obj = field.get(env);
-						Map<String, String> map = (Map<String, String>) obj;
-						map.clear();
-						map.putAll(newenv);
-					}
-				}
-			} catch (Exception e2) {
-				e2.printStackTrace();
-			}
-		} catch (Exception e1) {
-			e1.printStackTrace();
 		}
 	}
 }

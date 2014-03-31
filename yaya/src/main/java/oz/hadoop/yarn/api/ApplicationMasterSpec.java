@@ -31,8 +31,9 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.server.nodemanager.NodeManager;
 
+
 /**
- * A specification class meant to customize the behavior of {@link YarnApplicationMaster}.
+ * A specification class meant to customize the behavior of {@link YarnApplicationMasterLauncher}.
  * The two customization strategies are {@link AMRMClientAsync.CallbackHandler} and
  * {@link NMClientAsync.CallbackHandler}.
  *
@@ -41,7 +42,7 @@ import org.apache.hadoop.yarn.server.nodemanager.NodeManager;
  * @author Oleg Zhurakousky
  *
  */
-public class ApplicationMasterSpec {
+class ApplicationMasterSpec {
 
 	protected static final Log logger = LogFactory.getLog(ApplicationMasterSpec.class);
 
@@ -51,7 +52,7 @@ public class ApplicationMasterSpec {
 	 * @param yarnApplicationMaster
 	 * @return
 	 */
-	protected AMRMClientAsync.CallbackHandler buildResourceManagerCallbackHandler(YarnApplicationMaster yarnApplicationMaster) {
+	protected AMRMClientAsync.CallbackHandler buildResourceManagerCallbackHandler(YarnApplicationMasterLauncher yarnApplicationMaster) {
 		return new ResourceManagerCallbackHandler(yarnApplicationMaster);
 	}
 
@@ -61,7 +62,7 @@ public class ApplicationMasterSpec {
 	 * @param yarnApplicationMaster
 	 * @return
 	 */
-	protected NMClientAsync.CallbackHandler buildNodeManagerCallbackHandler(YarnApplicationMaster yarnApplicationMaster) {
+	protected NMClientAsync.CallbackHandler buildNodeManagerCallbackHandler(YarnApplicationMasterLauncher yarnApplicationMaster) {
 		return new NodeManagerCallbaclHandler();
 	}
 
@@ -119,9 +120,9 @@ public class ApplicationMasterSpec {
 
 		private final AtomicInteger completedContainersCounter = new AtomicInteger();
 
-		private final YarnApplicationMaster applicationMaster;
+		private final YarnApplicationMasterLauncher applicationMaster;
 
-		public ResourceManagerCallbackHandler(YarnApplicationMaster applicationMaster) {
+		public ResourceManagerCallbackHandler(YarnApplicationMasterLauncher applicationMaster) {
 			this.applicationMaster = applicationMaster;
 		}
 

@@ -29,6 +29,8 @@ subprojects { subproject ->
 		log4jVersion = '1.2.12'
 		slf4jVersion = '1.7.2'
 		hadoopVersion = '2.3.0'
+		mockitoVersion = '1.9.5'
+		jsonSimpleVersion = '1.1'
 	}
 
 	sourceSets {
@@ -45,6 +47,7 @@ subprojects { subproject ->
 	    compile "org.slf4j:slf4j-log4j12:$slf4jVersion"
 		testCompile "junit:junit-dep:$junitVersion"
 		testCompile "log4j:log4j:$log4jVersion"
+		testCompile "org.mockito:mockito-all:$mockitoVersion"
 	}
 
 	// enable all compiler warnings; individual projects may customize further
@@ -114,13 +117,6 @@ project('yaya') {
 		all*.exclude group: "commons-digester", module: "commons-digester"
 		all*.exclude group: "org.apache.commons", module: "commons-compress"
 		all*.exclude group: "org.apache.commons", module: "commons-math3"
-
-		//all*.exclude group: "commons-cli", module: "commons-cli"
-		//all*.exclude group: "commons-collections", module: "commons-collections"
-		//all*.exclude group: "commons-configuration", module: "commons-configuration"
-		//all*.exclude group: "commons-codec", module: "commons-codec"
-		//all*.exclude group: "org.slf4j", module: "slf4j-log4j12"
-		//all*.exclude group: "org.slf4j", module: "slf4j-api"
 	}
 	dependencies {
 	    compile "org.apache.hadoop:hadoop-yarn-client:$hadoopVersion"
@@ -128,6 +124,7 @@ project('yaya') {
 		compile "org.apache.hadoop:hadoop-hdfs:$hadoopVersion"
 		compile "org.apache.hadoop:hadoop-yarn-server-nodemanager:$hadoopVersion"
 		compile "org.apache.hadoop:hadoop-yarn-server-resourcemanager:$hadoopVersion"
+		compile "com.googlecode.json-simple:json-simple:$jsonSimpleVersion"
 	}
 }
 

@@ -22,12 +22,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
@@ -41,24 +39,23 @@ import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.impl.NMClientAsyncImpl;
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
+import org.json.simple.JSONObject;
+
+import oz.hadoop.yarn.api.utils.CollectionAssertUtils;
 
 /**
  * Default implementation of YARN Application Master. Currently YARN does not expose the Application Master
  * via any strategy, thus requiring any YARN-based application to implement its own from scratch.
  * The intention of this implementation of ApplicationMaster is to provide such strategy with enough default behavior
  * to allow most of the application containers to be deployed without ever implementing an ApplicationMaster.
- * This implementation could be further customized via {@link ApplicationMasterSpec}.
  *
  * @author Oleg Zhurakousky
  *
  */
-final class YarnApplicationMaster {
-
-	private static final Log logger = LogFactory.getLog(YarnApplicationMaster.class);
+final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 
 	protected final int containerCount;
 
@@ -78,8 +75,6 @@ final class YarnApplicationMaster {
 
 	private final String command;
 
-	private final YarnConfiguration yarnConfig;
-
 	private final CountDownLatch containerMonitor;
 
 	private final ApplicationMasterSpec applicationMasterSpec;
@@ -88,29 +83,41 @@ final class YarnApplicationMaster {
 
 	private final String applicationMasterId;
 
-	private final ContainerLaunchContext applicationContainer;
+	private final PrimitiveImmutableTypeMap argumentMap;
+
+	private final Map<String, Object> containerLaunchArguments;
+
+	private final String containerType;;
 
 	/**
 	 *
 	 */
-	YarnApplicationMaster(String[] args) {
-		this.applicationMasterName = args[0];
-		this.applicationMasterId = args[1];
-		this.containerCount = Integer.parseInt(args[2]);
-		this.memory = Integer.parseInt(args[3]);
-		this.virtualCores = Integer.parseInt(args[4]);
-		this.priority = Integer.parseInt(args[5]);
+	YarnApplicationMasterLauncher(String[] args) {
+		this.argumentMap = buildArgumentsMap(args[0]);
+		if (logger.isInfoEnabled()){
+			logger.info("Arguments: " + this.argumentMap);
+		}
+		this.containerCount = this.argumentMap.getInt(AbstractApplicationContainerSpec.CONTAINER_COUNT);
+		this.memory = this.argumentMap.getInt(AbstractApplicationContainerSpec.MEMORY);
+		this.virtualCores = this.argumentMap.getInt(AbstractApplicationContainerSpec.VIRTUAL_CORES);
+		this.priority = this.argumentMap.getInt(AbstractApplicationContainerSpec.PRIORITY);
+
+		this.applicationMasterName = this.argumentMap.getString(AbstractApplicationContainerSpec.APPLICATION_NAME);
+		this.applicationMasterId = this.argumentMap.getString(AbstractApplicationContainerSpec.APPLICATION_ID);
+		this.command = this.argumentMap.getString(AbstractApplicationContainerSpec.COMMAND);
+		this.containerType = this.argumentMap.getString(AbstractApplicationContainerSpec.CONTAINER_TYPE);
+
+		String containerArguments = this.argumentMap.getString(AbstractApplicationContainerSpec.CONTAINER_SPEC_ARG);
+		this.containerLaunchArguments = new HashMap<>();
+		this.containerLaunchArguments.put(AbstractApplicationContainerSpec.CONTAINER_SPEC_ARG, containerArguments);
+		this.containerLaunchArguments.put(AbstractApplicationContainerSpec.CONTAINER_IMPL, this.argumentMap.getString(AbstractApplicationContainerSpec.CONTAINER_IMPL));
 
 		try {
-			this.applicationMasterSpec = (ApplicationMasterSpec) Class.forName(args[6]).newInstance();
+			this.applicationMasterSpec = (ApplicationMasterSpec) Class.forName(this.argumentMap.getString(AbstractApplicationContainerSpec.AM_SPEC)).newInstance();
 		}
 		catch (Exception e) {
 			throw new IllegalArgumentException("Failed to create an instance of ApplicationMasterSpec", e);
 		}
-
-		this.command = args[7];
-
-		this.yarnConfig = new YarnConfiguration();
 
 		this.executor = Executors.newFixedThreadPool(this.containerCount);
 		this.containerMonitor = new CountDownLatch(this.containerCount);
@@ -118,34 +125,29 @@ final class YarnApplicationMaster {
 		this.nodeManagerCallbaclHandler = this.applicationMasterSpec.buildNodeManagerCallbackHandler(this);
 		this.nodeManagerClient = new NMClientAsyncImpl(this.nodeManagerCallbaclHandler);
 		this.resourceManagerClient = AMRMClientAsync.createAMRMClientAsync(1000, this.applicationMasterSpec.buildResourceManagerCallbackHandler(this));
-
-		this.applicationContainer = Records.newRecord(ContainerLaunchContext.class);
-		Map<String, LocalResource> localResources = YarnApplicationMaster.this.buildLocalResources();
-		applicationContainer.setLocalResources(localResources);
 	}
 
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) throws Exception {
+		CollectionAssertUtils.assertSize(args, 1);
+		YarnApplicationMasterLauncher applicationMaster = new YarnApplicationMasterLauncher(args);
+		applicationMaster.launch(args);
+	}
+
+	@Override
+	public void launch(String[] args) throws Exception {
 		logger.info("###### Starting APPLICATION MASTER ######");
-		if (logger.isDebugEnabled()){
+		if (logger.isDebugEnabled()) {
 			logger.debug("SYSTEM PROPERTIES:\n" + System.getProperties());
 			logger.debug("ENVIRONMENT VARIABLES:\n" + System.getenv());
 		}
+		// CALL custom Pre processor
 
-		YarnApplicationMaster applicationMaster = new YarnApplicationMaster(args);
-		applicationMaster.start(); // will block until
-		applicationMaster.stop();
+		this.start(); // will block until
+		this.stop();
 		logger.info("###### Stopped APPLICATION MASTER ######");
-	}
-
-	/**
-	 *
-	 * @return
-	 */
-	public String getCommand() {
-		return command;
 	}
 
 	/**
@@ -156,28 +158,50 @@ final class YarnApplicationMaster {
 		this.executor.execute(new Runnable() {
 			@Override
 			public void run() {
-				StringBuffer commandBuffer = new StringBuffer();
-				commandBuffer.append(YarnApplicationMaster.this.command);
-				commandBuffer.append(" 1>");
-				commandBuffer.append(ApplicationConstants.LOG_DIR_EXPANSION_VAR);
-				commandBuffer.append("/stdout");
-				commandBuffer.append(" 2>");
-				commandBuffer.append(ApplicationConstants.LOG_DIR_EXPANSION_VAR);
-				commandBuffer.append("/stderr");
-				String applicationContainerLaunchCommand = commandBuffer.toString();
+				ContainerLaunchContext containerLaunchContext = Records.newRecord(ContainerLaunchContext.class);
+
+				Map<String, LocalResource> localResources = YarnApplicationMasterLauncher.this.buildLocalResources();
+				if (logger.isDebugEnabled()){
+			    	logger.debug("Created LocalResources: " + localResources);
+			    }
+				containerLaunchContext.setLocalResources(localResources);
+
+				String applicationContainerLaunchCommand;
+				if (!"JAVA".equalsIgnoreCase(YarnApplicationMasterLauncher.this.containerType)){
+					applicationContainerLaunchCommand = YayaUtils.generateExecutionCommand(
+							YarnApplicationMasterLauncher.this.command,
+							"",
+							"",
+							"",
+							YarnApplicationMasterLauncher.this.applicationMasterName,
+							"_AC_");
+				}
+				else {
+					String classpath = YayaUtils.calculateClassPath(localResources);
+
+					String containerArg = JSONObject.toJSONString(YarnApplicationMasterLauncher.this.containerLaunchArguments);
+					String containerArgEncoded = new String(Base64.encodeBase64(containerArg.getBytes()));
+
+					String applicationLauncherName = JavaApplicationContainerLauncher.class.getName();
+					applicationContainerLaunchCommand = YayaUtils.generateExecutionCommand(
+							YarnApplicationMasterLauncher.this.command + " -cp ",
+							classpath,
+							applicationLauncherName,
+							containerArgEncoded,
+							YarnApplicationMasterLauncher.this.applicationMasterName,
+							"_AC_");
+					YayaUtils.inJvmPrep(YarnApplicationMasterLauncher.this.containerType, containerLaunchContext,
+							applicationLauncherName, containerArgEncoded);
+				}
 
 				if (logger.isInfoEnabled()){
 					logger.info("Setting up application container:" + allocatedContainer.getId());
 					logger.info("Application Container launch command: " + applicationContainerLaunchCommand);
 				}
 
-//				applicationContainer.getEnvironment().put("CONTAINER_TYPE", "JAVA");
-//				applicationContainer.getEnvironment().put("MAIN", YarnApplicationMaster.class.getName());
-//				applicationContainer.getEnvironment().put("MAIN_ARG", launchCommands.get("AC"));
+				containerLaunchContext.setCommands(Collections.singletonList(applicationContainerLaunchCommand));
 
-				applicationContainer.setCommands(Collections.singletonList(applicationContainerLaunchCommand));
-
-				YarnApplicationMaster.this.nodeManagerClient.startContainerAsync(allocatedContainer, applicationContainer);
+				YarnApplicationMasterLauncher.this.nodeManagerClient.startContainerAsync(allocatedContainer, containerLaunchContext);
 			}
 		});
 	}
@@ -197,17 +221,17 @@ final class YarnApplicationMaster {
 		try {
 			Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
 			String suffix = this.applicationMasterName + "_master/" + this.applicationMasterId + "/";
-			System.out.println("### Suffix: " + suffix);
 			FileSystem fs = FileSystem.get(this.yarnConfig);
 			Path dst = new Path(fs.getHomeDirectory(), suffix);
 			FileStatus[] deployedResources = fs.listStatus(dst);
 			for (FileStatus fileStatus : deployedResources) {
-				System.out.println("### FileStatus: " + fileStatus.getPath());
+				if (logger.isDebugEnabled()){
+					logger.debug("Creating local resource for: " + fileStatus.getPath());
+				}
 				LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(fileStatus.getPath().toUri()),
 						LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, fileStatus.getLen(), fileStatus.getModificationTime());
 				localResources.put(fileStatus.getPath().getName(), scRsrc);
 			}
-			System.out.println("### localResources: " + localResources);
 			return localResources;
 		}
 		catch (Exception e) {
@@ -219,27 +243,19 @@ final class YarnApplicationMaster {
 	 *
 	 */
 	private void start() {
-		this.resourceManagerClient.init(this.yarnConfig);
-		this.resourceManagerClient.start();
-		logger.info("Started AMRMClientAsync client");
-
-		this.nodeManagerClient.init(this.yarnConfig);
-		this.nodeManagerClient.start();
-		logger.info("Started NMClientAsyncImpl client");
-
-		try {
-			this.resourceManagerClient.registerApplicationMaster("", 0, "");
-			logger.info("Registered Application Master with ResourceManager");
-		}
-		catch (Exception e) {
-			throw new IllegalStateException("Failed to register ApplicationMaster with ResourceManager", e);
-		}
+		this.startResourceManagerClient();
+		this.startNodeManagerClient();
 
 		for (int i = 0; i < this.containerCount; ++i) {
-			ContainerRequest containerRequest = this.createConatinerRequest();
-
-			this.resourceManagerClient.addContainerRequest(containerRequest);
-			logger.info("Allocating container " + i + " - " + containerRequest);
+			try {
+				ContainerRequest containerRequest = this.createConatinerRequest();
+				this.resourceManagerClient.addContainerRequest(containerRequest);
+				logger.info("Allocating container " + i + " - " + containerRequest);
+			}
+			catch (Exception e) {
+				logger.error("Failed with container request", e);
+				this.containerMonitor.countDown();
+			}
 		}
 
 		try {
@@ -254,8 +270,40 @@ final class YarnApplicationMaster {
 	/**
 	 *
 	 */
+	private void startResourceManagerClient(){
+		this.resourceManagerClient.init(this.yarnConfig);
+		this.resourceManagerClient.start();
+		logger.info("Started AMRMClientAsync client");
+
+		try {
+			this.resourceManagerClient.registerApplicationMaster(this.yarnConfig.get("yarn.resourcemanager.hostname"), 0, "");
+			logger.info("Registered Application Master with ResourceManager");
+		}
+		catch (Exception e) {
+			throw new IllegalStateException("Failed to register ApplicationMaster with ResourceManager", e);
+		}
+	}
+
+	/**
+	 *
+	 */
+	private void startNodeManagerClient(){
+		this.nodeManagerClient.init(this.yarnConfig);
+		this.nodeManagerClient.start();
+		logger.info("Started NMClientAsyncImpl client");
+	}
+
+	/**
+	 *
+	 */
 	private void stop(){
 		try {
+			String suffix = this.applicationMasterName + "_master/" + this.applicationMasterId + "/";
+			FileSystem fs = FileSystem.get(this.yarnConfig);
+			Path dst = new Path(fs.getHomeDirectory(), suffix);
+			fs.delete(dst, true);
+			logger.info("Deleted application jars: " + dst.toString());
+
 			logger.info("Shutting down executor");
 			this.executor.shutdown();
 			logger.info("Unregistering the Application Master");

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package oz.hadoop.yarn.api;
+
+
+
 /**
  * Strategy for providing implementation for YARN-based applications.
  * Such implementation must encapsulate everything required (e.g., configuration, Application Master implementation etc.)
@@ -21,7 +24,7 @@ package oz.hadoop.yarn.api;
  *
  * YarnApplication encapsulates YARNs Application Master container which internally encapsulates
  * client's application containers (applications).
- * See {@link AbstractApplicationCommand} {@link YarnApplicationMaster} and {@link YarnApplicationBuilder} for more details.
+ * See {@link AbstractApplicationContainerSpec} {@link YarnApplicationMasterLauncher} and {@link YarnApplicationBuilder} for more details.
  *
  * @author Oleg Zhurakousky
  *

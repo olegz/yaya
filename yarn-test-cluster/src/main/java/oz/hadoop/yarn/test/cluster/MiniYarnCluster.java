@@ -20,8 +20,6 @@ package oz.hadoop.yarn.test.cluster;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -211,19 +209,6 @@ public class MiniYarnCluster extends CompositeService {
 
 	/**
 	 *
-	 * @return
-	 */
-	private String getHostname() {
-	    try {
-	      return InetAddress.getLocalHost().getHostName();
-	    }
-	    catch (UnknownHostException ex) {
-	      throw new RuntimeException(ex);
-	    }
-	  }
-
-	/**
-	 *
 	 * @param clusterName
 	 */
 	private void prepareScriptExecutionEnv(String clusterName) {
@@ -397,9 +382,9 @@ public class MiniYarnCluster extends CompositeService {
 			}
 			config.set(YarnConfiguration.NM_REMOTE_APP_LOG_DIR, remoteLogDir.getAbsolutePath());
 			config.setInt(YarnConfiguration.NM_PMEM_MB, 4 * 1024);
-			config.set(YarnConfiguration.NM_ADDRESS, MiniYarnCluster.this.getHostname() + ":0");
-			config.set(YarnConfiguration.NM_LOCALIZER_ADDRESS, MiniYarnCluster.this.getHostname() + ":0");
-			WebAppUtils.setNMWebAppHostNameAndPort(config, MiniYarnCluster.this.getHostname(), 0);
+			config.set(YarnConfiguration.NM_ADDRESS, this.getConfig().get("yarn.resourcemanager.hostname") + ":0");
+			config.set(YarnConfiguration.NM_LOCALIZER_ADDRESS, this.getConfig().get("yarn.resourcemanager.hostname") + ":0");
+			WebAppUtils.setNMWebAppHostNameAndPort(config, this.getConfig().get("yarn.resourcemanager.hostname"), 0);
 
 			// Disable resource checks by default
 			if (!config.getBoolean(YarnConfiguration.YARN_MINICLUSTER_CONTROL_RESOURCE_MONITORING,

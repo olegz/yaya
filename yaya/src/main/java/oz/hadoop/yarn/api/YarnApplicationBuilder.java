@@ -17,17 +17,14 @@ package oz.hadoop.yarn.api;
 
 import java.io.File;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
@@ -55,14 +52,13 @@ import oz.hadoop.yarn.api.utils.StringAssertUtils;
  * containers while exposing {@link ApplicationMasterSpec} for variety of customizations.
  * Typical usage would look something like this:
  * <pre>
- *      ApplicationCommand applicationCommand = new ApplicationCommand("ls -all");
- *		applicationCommand.setMemory(32);
- * 		applicationCommand.setContainerCount(1);
+ *      UnixApplicationContainerSpec unixContainer = new UnixApplicationContainerSpec("ls -all");
+ *		unixContainer.setMemory(32);
  *
- * 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("myCoolYarnApp", applicationCommand).
+ * 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("myCoolYarnApp", unixContainer).
  *				setYarnConfiguration(yarnConfiguration).
  *				setMaxAttempts(1).
- *				setMemory(64).
+ *				setMemory(1024).
  *				setVirtualCores(1).
  *				build();
  *
@@ -71,9 +67,9 @@ import oz.hadoop.yarn.api.utils.StringAssertUtils;
  * The returned {@link YarnApplication} will will be initialized with default values (see setters) while those values
  * could be overridden during the build process. In other words for bare minimum all you need is the following:
  * <pre>
- *      ApplicationCommand applicationCommand = new ApplicationCommand("ls -all");
+ *      UnixApplicationContainerSpec unixContainer = new UnixApplicationContainerSpec("ls -all");
  *
- * 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("myCoolYarnApp", applicationCommand).build();
+ * 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("myCoolYarnApp", unixContainer).build();
  *
  *      yarnApplication.launch();
  * <pre>
@@ -85,13 +81,13 @@ public class YarnApplicationBuilder {
 
 	private static final Log logger = LogFactory.getLog(YarnApplicationBuilder.class);
 
-	private final static String applicationMasterFqn = "oz.hadoop.yarn.api.YarnApplicationMaster";
+	private final static String applicationMasterFqn = YarnApplicationMasterLauncher.class.getName();
 
 	private final String applicationName;
 
 	private YarnConfiguration yarnConfig;
 
-	private final AbstractApplicationCommand applicationCommand;
+	private final AbstractApplicationContainerSpec applicationContainerSpec;
 
 	private final Resource capability;
 
@@ -104,26 +100,26 @@ public class YarnApplicationBuilder {
 	private int priority;
 
 	/**
-	 * Creates an instance of this builder initializing it with the application name and {@link AbstractApplicationCommand}
+	 * Creates an instance of this builder initializing it with the application name and {@link AbstractApplicationContainerSpec}
 	 *
 	 * @param applicationName
 	 * @param applicationCommand
 	 * @return
 	 */
-	public static YarnApplicationBuilder forApplication(String applicationName, AbstractApplicationCommand applicationCommand){
+	public static YarnApplicationBuilder forApplication(String applicationName, AbstractApplicationContainerSpec applicationContainerSpec){
 		StringAssertUtils.assertNotEmptyAndNoSpaces(applicationName);
-		ObjectAssertUtils.assertNotNull(applicationCommand);
+		ObjectAssertUtils.assertNotNull(applicationContainerSpec);
 
-		YarnApplicationBuilder builder = new YarnApplicationBuilder(applicationName, applicationCommand);
+		YarnApplicationBuilder builder = new YarnApplicationBuilder(applicationName, applicationContainerSpec);
 		return builder;
 	}
 	/**
 	 *
 	 * @param applicationName
 	 */
-	private YarnApplicationBuilder(String applicationName, AbstractApplicationCommand applicationCommand){
+	private YarnApplicationBuilder(String applicationName, AbstractApplicationContainerSpec applicationContainerSpec){
 		this.applicationName = applicationName;
-		this.applicationCommand = applicationCommand;
+		this.applicationContainerSpec = applicationContainerSpec;
 		this.yarnConfig = new YarnConfiguration();
 		this.javaCommand = "java";
 
@@ -298,28 +294,25 @@ public class YarnApplicationBuilder {
 			private ApplicationSubmissionContext initApplicationContext(YarnClientApplication yarnClientApplication){
 				ApplicationSubmissionContext appContext = yarnClientApplication.getApplicationSubmissionContext();
 			    appContext.setApplicationName(YarnApplicationBuilder.this.applicationName);
-
 			    ApplicationId appId = appContext.getApplicationId();
-			    ContainerLaunchContext applicationMasterContainer = Records.newRecord(ContainerLaunchContext.class);
+
+			    ContainerLaunchContext containerLaunchContext = this.createContainerLaunchContext(appId.getId());
 
 			    Map<String, LocalResource> localResources = this.createLocalResources(appId);
 			    if (logger.isDebugEnabled()){
 			    	logger.debug("Created LocalResources: " + localResources);
 			    }
-			    applicationMasterContainer.setLocalResources(localResources);
+			    containerLaunchContext.setLocalResources(localResources);
 
-			    Map<String, String> launchCommands = this.createApplicationMasterLaunchCommand(appId, localResources);
-				applicationMasterContainer.setCommands(Collections.singletonList(launchCommands.get("AM")));
-
-				applicationMasterContainer.getEnvironment().put("CONTAINER_TYPE", "JAVA");
-			    applicationMasterContainer.getEnvironment().put("MAIN", YarnApplicationMaster.class.getName());
-			    applicationMasterContainer.getEnvironment().put("MAIN_ARG", launchCommands.get("AC"));
+			    String encodedArguments = YarnApplicationBuilder.this.applicationContainerSpec.toBase64EncodedJsonString();
+			    String applicationMasterLaunchCommand = this.createApplicationMasterLaunchCommand(localResources, encodedArguments);
+			    containerLaunchContext.setCommands(Collections.singletonList(applicationMasterLaunchCommand));
 
 				Priority priority = Records.newRecord(Priority.class);
 			    priority.setPriority(YarnApplicationBuilder.this.priority);
 			    appContext.setResource(YarnApplicationBuilder.this.capability);
 			    appContext.setMaxAppAttempts(YarnApplicationBuilder.this.maxAttempts);
-			    appContext.setAMContainerSpec(applicationMasterContainer);
+			    appContext.setAMContainerSpec(containerLaunchContext);
 			    appContext.setPriority(priority);
 			    appContext.setQueue(YarnApplicationBuilder.this.queueName);
 
@@ -328,6 +321,27 @@ public class YarnApplicationBuilder {
 			    }
 
 				return appContext;
+			}
+
+			/**
+			 *
+			 */
+			private ContainerLaunchContext createContainerLaunchContext(int applicationId) {
+				ContainerLaunchContext containerLaunchContext = Records.newRecord(ContainerLaunchContext.class);
+				YarnApplicationBuilder.this.applicationContainerSpec.addToContainerSpec(AbstractApplicationContainerSpec.APPLICATION_NAME, YarnApplicationBuilder.this.applicationName);
+				YarnApplicationBuilder.this.applicationContainerSpec.addToContainerSpec(AbstractApplicationContainerSpec.APPLICATION_ID, applicationId);
+
+				if (YarnApplicationBuilder.this.applicationContainerSpec instanceof JavaApplicationContainerSpec){
+					YarnApplicationBuilder.this.applicationContainerSpec.addToContainerSpec(AbstractApplicationContainerSpec.CONTAINER_TYPE, "JAVA");
+				}
+
+				if (logger.isInfoEnabled()) {
+					logger.info("Application container spec: " + YarnApplicationBuilder.this.applicationContainerSpec.toJsonString());
+				}
+
+				YayaUtils.inJvmPrep("JAVA", containerLaunchContext, YarnApplicationBuilder.applicationMasterFqn, YarnApplicationBuilder.this.applicationContainerSpec.toBase64EncodedJsonString());
+
+			    return containerLaunchContext;
 			}
 
 			/**
@@ -344,7 +358,7 @@ public class YarnApplicationBuilder {
 					for (String v : cp) {
 						File f = new File(v);
 						if (f.isDirectory()) {
-							String jarFileName = this.generateJarFileName();
+							String jarFileName = YayaUtils.generateJarFileName(YarnApplicationBuilder.this.applicationName);
 							if (logger.isDebugEnabled()){
 								logger.debug("Creating JAR: " + jarFileName);
 							}
@@ -352,7 +366,8 @@ public class YarnApplicationBuilder {
 							this.addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), appId.getId(), localResources);
 							try {
 								new File(jarFile.getAbsolutePath()).delete(); // will delete the generated JAR file
-							} catch (Exception e) {
+							}
+							catch (Exception e) {
 								logger.warn("Failed to delete generated JAR file: " + jarFile.getAbsolutePath(), e);
 							}
 						}
@@ -370,68 +385,25 @@ public class YarnApplicationBuilder {
 			/**
 			 * Will generate the final launch command for this ApplicationMaster
 			 */
-			private Map<String, String> createApplicationMasterLaunchCommand(ApplicationId appId, Map<String, LocalResource> localResources) {
-				Map<String, String> commands = new HashMap<String, String>();
-
-				String classpath = this.calculateClassPath(localResources);
-
-
-				// propagate the classpath to the actual application container command
-				if (YarnApplicationBuilder.this.applicationCommand instanceof JavaCommand){
-					((JavaCommand)YarnApplicationBuilder.this.applicationCommand).setClasspath(classpath);
-				}
-				String applicationContainerLaunchCommand = YarnApplicationBuilder.this.applicationCommand.build(applicationName, appId.getId());
-
-				//String applicationContainerLaunchCommand = YarnApplicationBuilder.this.applicationCommand.build(applicationName, appId.getId());
+			private String createApplicationMasterLaunchCommand(Map<String, LocalResource> localResources, String containerSpecStr) {
+				String classpath = YayaUtils.calculateClassPath(localResources);
 				if (logger.isInfoEnabled()){
-					logger.info("Application container launch command: " + applicationContainerLaunchCommand);
+					logger.info("Application master classpath: " + classpath);
 				}
 
-				StringBuffer commandBuffer = new StringBuffer();
-				commandBuffer.append(YarnApplicationBuilder.this.javaCommand);
-				commandBuffer.append(" -cp ");
-				commandBuffer.append(classpath);
-				commandBuffer.append(" ");
-				commandBuffer.append(YarnApplicationBuilder.applicationMasterFqn);
-				commandBuffer.append(" ");
-				commandBuffer.append(applicationContainerLaunchCommand);
-				commandBuffer.append(" ");
-				commandBuffer.append(" 1>");
-				commandBuffer.append(ApplicationConstants.LOG_DIR_EXPANSION_VAR);
-				commandBuffer.append("/");
-				commandBuffer.append(YarnApplicationBuilder.this.applicationName);
-				commandBuffer.append("_MasterStdOut");
-				commandBuffer.append(" 2>");
-				commandBuffer.append(ApplicationConstants.LOG_DIR_EXPANSION_VAR);
-				commandBuffer.append("/");
-				commandBuffer.append(YarnApplicationBuilder.this.applicationName);
-				commandBuffer.append("_MasterStdErr");
+				String applicationMasterLaunchCommand = YayaUtils.generateExecutionCommand(
+						YarnApplicationBuilder.this.javaCommand + " -cp ",
+						classpath,
+						YarnApplicationBuilder.applicationMasterFqn,
+						containerSpecStr,
+						YarnApplicationBuilder.this.applicationName,
+						"_AM_");
 
-				String applicationMasterLaunchCommand = commandBuffer.toString();
-				commands.put("AM",  applicationMasterLaunchCommand); // for ApplicationMaster
-				commands.put("AC",  applicationContainerLaunchCommand); // for ApplicationContainer
 				if (logger.isInfoEnabled()){
 					logger.info("Application Master launch command: " + applicationMasterLaunchCommand);
 				}
 
-			    return commands;
-			}
-
-			/**
-			 *
-			 * @param localResources
-			 * @return
-			 */
-			private String calculateClassPath(Map<String, LocalResource> localResources) {
-				StringBuffer buffer = new StringBuffer();
-				for (String resource : localResources.keySet()) {
-					buffer.append("./" + resource + ":");
-				}
-				String classpath = buffer.toString();
-				if (logger.isDebugEnabled()){
-					logger.debug("classpath: " + classpath);
-				}
-				return classpath;
+			    return applicationMasterLaunchCommand;
 			}
 
 			/**
@@ -460,19 +432,6 @@ public class YarnApplicationBuilder {
 				catch (Exception e) {
 					throw new IllegalStateException("Failed to communicate with FileSystem: " + fs, e);
 				}
-			}
-
-			/**
-			 *
-			 * @return
-			 */
-			private String generateJarFileName(){
-				StringBuffer nameBuffer = new StringBuffer();
-				nameBuffer.append(YarnApplicationBuilder.this.applicationName);
-				nameBuffer.append("_");
-				nameBuffer.append(UUID.randomUUID().toString());
-				nameBuffer.append(".jar");
-				return nameBuffer.toString();
 			}
 		};
 	}

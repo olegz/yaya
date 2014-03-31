@@ -15,22 +15,22 @@
 <configuration>
   <property>       
      <name>yarn.resourcemanager.resourcetracker.address</name>       
-     <value>0.0.0.0:8025</value>  
+     <value>localhost:8025</value>  
      <description>Enter your ResourceManager hostname.</description>
   </property>
   <property>       
      <name>yarn.resourcemanager.scheduler.address</name>       
-     <value>0.0.0.0:8035</value>  
+     <value>localhost:8035</value>  
      <description>Enter your ResourceManager hostname.</description>
   </property>
   <property>       
     <name>yarn.resourcemanager.address</name>       
-    <value>0.0.0.0:8055</value>  
+    <value>localhost:8055</value>  
     <description>Enter your ResourceManager hostname.</description>
   </property>
   <property>
    <name>yarn.resourcemanager.hostname</name>
-   <value>0.0.0.0</value>
+   <value>localhost</value>
     <description>The hostname of the RM.</description>
  </property>
   <property>

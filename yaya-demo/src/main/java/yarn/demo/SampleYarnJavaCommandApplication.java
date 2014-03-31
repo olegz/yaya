@@ -1,6 +1,10 @@
 package yarn.demo;
 
-import oz.hadoop.yarn.api.JavaCommand;
+import java.util.Arrays;
+
+import oz.hadoop.yarn.api.JavaApplicationContainer;
+import oz.hadoop.yarn.api.JavaApplicationContainerSpec;
+import oz.hadoop.yarn.api.PrimitiveImmutableTypeMap;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnApplicationBuilder;
 
@@ -27,13 +31,15 @@ public class SampleYarnJavaCommandApplication {
 		// Create a command to be executed in the container launched by the Application Master
 
 		// or create a Java command
-		JavaCommand applicationCommand = new JavaCommand(HelloWorld.class);
-		applicationCommand.addCommandArgument("foo");
-		applicationCommand.addCommandArgument("bar");
-		applicationCommand.setContainerCount(2);
+		JavaApplicationContainerSpec applicationContainer = new JavaApplicationContainerSpec(MyJavaContainer.class);
+		applicationContainer.addContainerArgument("fname", "Joe");
+		applicationContainer.addContainerArgument("knownNames", Arrays.asList(new String[]{"Bob", "Greg"}));
+		applicationContainer.setContainerCount(2);
+
+		System.out.println(applicationContainer.toJsonString());
 
 		// Create YARN application
-		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-java-app", applicationCommand).
+		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-java-app", applicationContainer).
 				setMemory(2048).
 				setVirtualCores(2).
 				build();
@@ -42,5 +48,15 @@ public class SampleYarnJavaCommandApplication {
 		yarnApplication.launch();
 
 		// Check target/LOCAL_YARN_CLUSTER directory of this project for application logs
+	}
+
+	private static class MyJavaContainer implements JavaApplicationContainer {
+
+		@Override
+		public void launch(PrimitiveImmutableTypeMap arguments) {
+			System.out.println("Hello Yarn");
+			System.out.println("Arguments: " + arguments);
+		}
+
 	}
 }
