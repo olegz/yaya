@@ -69,7 +69,7 @@ public class YayaUtilsTests {
 	}
 
 	@Test
-	public void foo() throws Exception {
+	public void validateClassPathFromLocalSource() throws Exception {
 		LocalResource l1 = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(new URI("file://foo.jar")), LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, 1234L, 678L);
 		LocalResource l2 = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(new URI("file://bar.jar")), LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, 1234L, 678L);
 		Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
