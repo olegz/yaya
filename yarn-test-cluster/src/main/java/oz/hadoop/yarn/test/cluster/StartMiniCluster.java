@@ -20,7 +20,7 @@ public class StartMiniCluster {
 //		conf.setClass(YarnConfiguration.RM_SCHEDULER, FairScheduler.class, ResourceScheduler.class);
 
 		YarnConfiguration yarnConfig = new YarnConfiguration(conf);
-		MiniYarnCluster yarnCluster= new MiniYarnCluster("LOCAL_YARN_CLUSTER", 1, 1, 1);
+		MiniYarnCluster yarnCluster= new MiniYarnCluster("LOCAL_YARN_CLUSTER", 1);
 		yarnCluster.init(new YarnConfiguration(yarnConfig));
 		yarnCluster.start();
 

@@ -44,6 +44,7 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
+import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerDiagnosticsUpdateEvent;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.launcher.ContainerLaunch;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.ContainerLocalizer;
 import org.apache.hadoop.yarn.util.ConverterUtils;
@@ -181,7 +182,8 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 		}
 		catch (Exception e) {
 			logger.error("Failed to launch container " + container, e);
-			return -9;
+			container.handle(new ContainerDiagnosticsUpdateEvent(container.getContainerId(), e.getMessage()));
+			return 1;
 		}
 		return 0;
 	}

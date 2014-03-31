@@ -119,14 +119,14 @@ public class MiniYarnCluster extends CompositeService {
 	 * @param numLocalDirs
 	 * @param numLogDirs
 	 */
-	public MiniYarnCluster(String clusterName, int numNodeManagers, int numLocalDirs, int numLogDirs) {
+	public MiniYarnCluster(String clusterName, int numNodeManagers) {
 		super(clusterName.replace("$", ""));
 		this.resourceManager = new UnsecureResourceManager();
 		this.serviceStartExecutor = Executors.newCachedThreadPool();
 		this.serviceStartMonitoringExecutor = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors()/2);
 		this.appMasters = new ConcurrentHashMap<ApplicationAttemptId, Long>(16, 0.75f, 2);
-		this.numLocalDirs = numLocalDirs;
-		this.numLogDirs = numLogDirs;
+		this.numLocalDirs = 1;
+		this.numLogDirs = 1;
 		this.prepareScriptExecutionEnv(clusterName);
 		nodeManagers = new NodeManager[numNodeManagers];
 	}

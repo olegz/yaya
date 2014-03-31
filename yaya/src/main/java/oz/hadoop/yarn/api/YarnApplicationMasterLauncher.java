@@ -87,7 +87,9 @@ final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 
 	private final Map<String, Object> containerLaunchArguments;
 
-	private final String containerType;;
+	private final String containerType;
+
+	private volatile Throwable error;
 
 	/**
 	 *
@@ -148,6 +150,10 @@ final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 		this.start(); // will block until
 		this.stop();
 		logger.info("###### Stopped APPLICATION MASTER ######");
+		if (this.error != null){
+			throw new IllegalStateException("Application Master for " + this.applicationMasterName + "_" + this.applicationMasterId
+					 + " failed with error.", this.error);
+		}
 	}
 
 	/**
@@ -158,14 +164,36 @@ final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 		this.executor.execute(new Runnable() {
 			@Override
 			public void run() {
-				ContainerLaunchContext containerLaunchContext = Records.newRecord(ContainerLaunchContext.class);
+				try {
+					ContainerLaunchContext containerLaunchContext = Records.newRecord(ContainerLaunchContext.class);
+					Map<String, LocalResource> localResources = YarnApplicationMasterLauncher.this.buildLocalResources();
+					if (logger.isDebugEnabled()){
+				    	logger.debug("Created LocalResources: " + localResources);
+				    }
+					containerLaunchContext.setLocalResources(localResources);
 
-				Map<String, LocalResource> localResources = YarnApplicationMasterLauncher.this.buildLocalResources();
-				if (logger.isDebugEnabled()){
-			    	logger.debug("Created LocalResources: " + localResources);
-			    }
-				containerLaunchContext.setLocalResources(localResources);
+					String applicationContainerLaunchCommand = this.buildApplicationCommand(containerLaunchContext, localResources);
 
+					if (logger.isInfoEnabled()){
+						logger.info("Setting up application container:" + allocatedContainer.getId());
+						logger.info("Application Container launch command: " + applicationContainerLaunchCommand);
+					}
+
+					containerLaunchContext.setCommands(Collections.singletonList(applicationContainerLaunchCommand));
+
+					YarnApplicationMasterLauncher.this.nodeManagerClient.startContainerAsync(allocatedContainer, containerLaunchContext);
+				}
+				catch (Exception e){
+					logger.warn("Failed to launch container " + allocatedContainer.getId(), e);
+					YarnApplicationMasterLauncher.this.error = e;
+					YarnApplicationMasterLauncher.this.containerMonitor.countDown();
+				}
+			}
+
+			/**
+			 *
+			 */
+			private String buildApplicationCommand(ContainerLaunchContext containerLaunchContext, Map<String, LocalResource> localResources) {
 				String applicationContainerLaunchCommand;
 				if (!"JAVA".equalsIgnoreCase(YarnApplicationMasterLauncher.this.containerType)){
 					applicationContainerLaunchCommand = YayaUtils.generateExecutionCommand(
@@ -193,15 +221,7 @@ final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 					YayaUtils.inJvmPrep(YarnApplicationMasterLauncher.this.containerType, containerLaunchContext,
 							applicationLauncherName, containerArgEncoded);
 				}
-
-				if (logger.isInfoEnabled()){
-					logger.info("Setting up application container:" + allocatedContainer.getId());
-					logger.info("Application Container launch command: " + applicationContainerLaunchCommand);
-				}
-
-				containerLaunchContext.setCommands(Collections.singletonList(applicationContainerLaunchCommand));
-
-				YarnApplicationMasterLauncher.this.nodeManagerClient.startContainerAsync(allocatedContainer, containerLaunchContext);
+				return applicationContainerLaunchCommand;
 			}
 		});
 	}
@@ -243,19 +263,19 @@ final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 	 *
 	 */
 	private void start() {
-		this.startResourceManagerClient();
-		this.startNodeManagerClient();
-
-		for (int i = 0; i < this.containerCount; ++i) {
-			try {
+		try {
+			this.startResourceManagerClient();
+			this.startNodeManagerClient();
+			for (int i = 0; i < this.containerCount; ++i) {
 				ContainerRequest containerRequest = this.createConatinerRequest();
 				this.resourceManagerClient.addContainerRequest(containerRequest);
 				logger.info("Allocating container " + i + " - " + containerRequest);
 			}
-			catch (Exception e) {
-				logger.error("Failed with container request", e);
-				this.containerMonitor.countDown();
-			}
+		}
+		catch (Exception e) {
+			logger.error("Failed to request container allocation", e);
+			this.containerMonitor.countDown();
+			this.error = e;
 		}
 
 		try {

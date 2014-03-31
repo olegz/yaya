@@ -36,8 +36,6 @@ public class SampleYarnJavaCommandApplication {
 		applicationContainer.addContainerArgument("knownNames", Arrays.asList(new String[]{"Bob", "Greg"}));
 		applicationContainer.setContainerCount(2);
 
-		System.out.println(applicationContainer.toJsonString());
-
 		// Create YARN application
 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-java-app", applicationContainer).
 				setMemory(2048).
