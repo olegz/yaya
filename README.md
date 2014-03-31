@@ -16,7 +16,6 @@ YarnApplication yarnApplication =
 
 // Launch YARN application
 yarnApplication.launch();
-
 ```
 for Java here is a sample implementation of _MyJavaContainer_
 
