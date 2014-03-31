@@ -24,6 +24,9 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.json.simple.parser.JSONParser;
 
 /**
+ * Base class for implementing Container Launchers.
+ * See {@link JavaApplicationContainerLauncher} and {@link YarnApplicationMasterLauncher}
+ *
  * @author Oleg Zhurakousky
  *
  */
@@ -34,27 +37,37 @@ abstract class BaseContainerLauncher {
 
 	protected final YarnConfiguration yarnConfig;
 
+	/**
+	 *
+	 */
 	public BaseContainerLauncher(){
 		this.yarnConfig = new YarnConfiguration();
 	}
 
 	/**
+	 * Converts Base64 encoded JSON String of container arguments to {@link PrimitiveImmutableTypeMap}
 	 *
 	 * @param jsonArguments
 	 * @return
 	 */
-	protected PrimitiveImmutableTypeMap buildArgumentsMap(String jsonArguments){
+	protected PrimitiveImmutableTypeMap buildArgumentsMap(String base64EncodedJsonString){
 		try {
-			String decodedArguments = new String(Base64.decodeBase64(jsonArguments.getBytes()));
+			String decodedArguments = new String(Base64.decodeBase64(base64EncodedJsonString.getBytes()));
 			@SuppressWarnings("unchecked")
 			Map<String, Object> arguments = (Map<String, Object>) jsonParser.parse(decodedArguments);
 			return new PrimitiveImmutableTypeMap(arguments);
 		}
 		catch (Exception e) {
-			throw new IllegalArgumentException("Failed to parse arguments out of the json string " + jsonArguments, e);
+			throw new IllegalArgumentException("Failed to parse arguments out of the json string", e);
 		}
 	}
 
+	/**
+	 * Base method for implementing internal container launchers.
+	 * See {@link JavaApplicationContainerLauncher} and {@link YarnApplicationMasterLauncher}
+	 *
+	 * @param args
+	 * @throws Exception
+	 */
 	public abstract void launch(String[] args) throws Exception;
-
 }

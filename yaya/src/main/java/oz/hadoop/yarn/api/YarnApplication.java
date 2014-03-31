@@ -20,7 +20,7 @@ package oz.hadoop.yarn.api;
 /**
  * Strategy for providing implementation for YARN-based applications.
  * Such implementation must encapsulate everything required (e.g., configuration, Application Master implementation etc.)
- * in order to call {@link #start()} method and have the underlying application be successfully deployed.
+ * in order to call {@link #launch()} method and have the underlying application be successfully deployed.
  *
  * YarnApplication encapsulates YARNs Application Master container which internally encapsulates
  * client's application containers (applications).

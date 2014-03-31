@@ -24,8 +24,6 @@ import org.junit.Test;
 
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
 
-
-
 /**
  * @author Oleg Zhurakousky
  *
@@ -77,11 +75,9 @@ public class JavaApplicationContainerSpecTests {
 	/**
 	 */
 	private static class MyApplicationContainer implements JavaApplicationContainer {
-
 		@Override
 		public void launch(PrimitiveImmutableTypeMap arguments) {
 			System.out.println("Arguments: " + arguments);
 		}
-
 	}
 }

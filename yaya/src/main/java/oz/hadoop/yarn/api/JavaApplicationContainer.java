@@ -15,16 +15,23 @@
  */
 package oz.hadoop.yarn.api;
 
-
 /**
+ * Strategy for implementing java-based Applications Containers.
+ * See {@link #launch(PrimitiveImmutableTypeMap)} method.
+ *
  * @author Oleg Zhurakousky
  *
  */
 public interface JavaApplicationContainer {
 
 	/**
-	 * The Map values could be either Strings or List of Strings or a Map
-	 * which follows the same schema.
+	 * This method takes {@link PrimitiveImmutableTypeMap} which contains
+	 * container arguments that were set when creating
+	 * {@link JavaApplicationContainerSpec#addContainerArgument(String, java.util.List)} or
+	 * {@link JavaApplicationContainerSpec#addContainerArgument(String, String)}.
+	 * NOTE: Every argument value in {@link PrimitiveImmutableTypeMap} is either of type
+	 * String or {@link List<String>} or {@link Map<String, String>} or {@link Map<String, List<String>>}
+	 * or {@link Map<String, Map<String, String>} etc.
 	 *
 	 * @param arguments
 	 */

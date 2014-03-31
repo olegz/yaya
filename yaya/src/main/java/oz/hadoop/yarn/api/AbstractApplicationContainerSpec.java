@@ -28,6 +28,8 @@ import oz.hadoop.yarn.api.utils.ObjectAssertUtils;
 import oz.hadoop.yarn.api.utils.StringAssertUtils;
 
 /**
+ * Base class for implementing Application Container specification.
+ * See {@link JavaApplicationContainerSpec} and {@link UnixApplicationContainerSpec}
  *
  * @author Oleg Zhurakousky
  *
@@ -73,52 +75,103 @@ abstract class AbstractApplicationContainerSpec {
 		this.containerArguments = new HashMap<String, Object>();
 	}
 
+	/**
+	 *
+	 * @param containerCount
+	 */
 	public void setContainerCount(int containerCount) {
 		NumberAssertUtils.assertGreaterThenZero(containerCount);
 		this.containerSpec.put(CONTAINER_COUNT, containerCount);
 	}
 
+	/**
+	 *
+	 * @param memory
+	 */
 	public void setMemory(int memory){
 		NumberAssertUtils.assertGreaterThenZero(memory);
 		this.containerSpec.put(MEMORY, memory);
 	}
 
+	/**
+	 *
+	 * @param virtualCores
+	 */
 	public void setVirtualCores(int virtualCores){
 		NumberAssertUtils.assertGreaterThenZero(virtualCores);
 		this.containerSpec.put(VIRTUAL_CORES, virtualCores);
 	}
 
+	/**
+	 *
+	 * @param priority
+	 */
 	public void setPriority(int priority){
 		NumberAssertUtils.assertZeroOrPositive(priority);
 		this.containerSpec.put(PRIORITY, priority);
 	}
 
+	/**
+	 * Converts representation of this specification to JSON string.
+	 *
+	 * @return
+	 */
 	public String toJsonString() {
 		this.containerSpec.put("containerArguments", this.containerArguments);
 		return JSONObject.toJSONString(this.containerSpec);
 	}
 
+	/**
+	 * Encodes representation of the JSON string of this specification to Base64 String.
+	 * It is used while passing arguments between the containers while preserving its JSON
+	 * representation.
+	 *
+	 * @return
+	 */
 	public String toBase64EncodedJsonString() {
 		String jsonString = this.toJsonString();
 		String encoded = new String(Base64.encodeBase64(jsonString.getBytes()));
 		return encoded;
 	}
 
+	/**
+	 * Adds a container argument
+	 *
+	 * @param key
+	 * @param value
+	 */
 	public void addContainerArgument(String key, String value){
 		StringAssertUtils.assertNotEmptyAndNoSpaces(key);
 		this.containerArguments.put(key, value);
 	}
 
+	/**
+	 * Adds a container argument
+	 *
+	 * @param key
+	 * @param values
+	 */
 	public void addContainerArgument(String key, List<String> values){
 		StringAssertUtils.assertNotEmptyAndNoSpaces(key);
 		this.containerArguments.put(key, values);
 	}
 
+	/**
+	 * Adds to this container specification.
+	 * Used only internally. Mainly to dynamically add application name and id
+	 * before launching Application Container.
+	 *
+	 * @param key
+	 * @param value
+	 */
 	protected void addToContainerSpec(String key, Object value) {
 		ObjectAssertUtils.assertNotNull(key);
 		this.containerSpec.put(key, value);
 	}
 
+	/**
+	 *
+	 */
 	@Override
 	public String toString(){
 		return this.getClass().getSimpleName() + ":" + this.toJsonString();

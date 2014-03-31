@@ -18,6 +18,8 @@ package oz.hadoop.yarn.api;
 import oz.hadoop.yarn.api.utils.StringAssertUtils;
 
 /**
+ * A specification class for defining a Unix based YARN Application Container
+ *
  * @author Oleg Zhurakousky
  *
  */
@@ -34,9 +36,5 @@ public class UnixApplicationContainerSpec extends AbstractApplicationContainerSp
 		StringAssertUtils.assertNotEmpty(command);
 		StringAssertUtils.assertNotEmpty(command.trim());
 		this.addToContainerSpec(COMMAND, command);
-	}
-
-	public String getCommand() {
-		return (String) this.containerSpec.get(COMMAND);
 	}
 }
