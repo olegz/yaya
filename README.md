@@ -7,13 +7,13 @@ This project has two main goals.
 ### YARN could and should be as simple as:
 ```
 // Create a command to be executed in the container launched by the Application Master
-UnixCommand applicationCommand = new UnixCommand("cal");
+UnixApplicationContainerSpec appContainer = new UnixApplicationContainerSpec("ls -all");
 // or create a Java command
-// JavaCommand applicationCommand = new JavaCommand(HelloWorld.class);
+// JavaApplicationContainerSpec appContainer = new JavaApplicationContainerSpec(MyJavaContainer.class);
 
 // Create YARN application
 YarnApplication yarnApplication = 
-          YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();
+          YarnApplicationBuilder.forApplication("sample-yarn-app", appContainer).build();
 
 // Launch YARN application
 yarnApplication.launch();
