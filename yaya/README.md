@@ -4,18 +4,27 @@
 
 ### YARN could and should be as simple as:
 ```
-// Create a command to be executed in the container launched by the Application Master
-UnixCommand applicationCommand = new UnixCommand("cal");
-// or create a Java command
-// JavaCommand applicationCommand = new JavaCommand(HelloWorld.class);
+JavaApplicationContainerSpec appContainer = new JavaApplicationContainerSpec(MyJavaContainer.class);
+// or create a Unix application container
+UnixApplicationContainerSpec appContainer = new UnixApplicationContainerSpec("ls -all");
 
 // Create YARN application
 YarnApplication yarnApplication = 
-          YarnApplicationBuilder.forApplication("sample-yarn-app", applicationCommand).build();
+          YarnApplicationBuilder.forApplication("sample-yarn-app", appContainer).build();
 
 // Launch YARN application
 yarnApplication.launch();
+```
+for Java here is a sample implementation of _MyJavaContainer_
 
+```
+private static class MyJavaContainer implements JavaApplicationContainer {
+    @Override
+    public void launch(PrimitiveImmutableTypeMap arguments) {
+        System.out.println("Hello Yarn");
+        System.out.println("Arguments: " + arguments);
+    }
+}
 ```
 
 ##### [Introduction](https://github.com/olegz/yarn-tutorial/wiki/Introduction)

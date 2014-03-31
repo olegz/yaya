@@ -27,7 +27,7 @@ private static class MyJavaContainer implements JavaApplicationContainer {
         System.out.println("Arguments: " + arguments);
     }
 }
-````
+```
 
 ##### [Introduction](https://github.com/olegz/yarn-tutorial/wiki/Introduction)
 ##### [For Developers](https://github.com/olegz/yarn-tutorial/wiki/Developers)
