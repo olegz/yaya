@@ -231,6 +231,9 @@ final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 	 * @param container
 	 */
 	protected void signalContainerCompletion(ContainerStatus containerStatus) {
+		if (containerStatus.getExitStatus() != 0){
+			this.error = new IllegalStateException(containerStatus.getDiagnostics());
+		}
 		this.containerMonitor.countDown();
 	}
 
@@ -327,8 +330,16 @@ final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 			logger.info("Shutting down executor");
 			this.executor.shutdown();
 			logger.info("Unregistering the Application Master");
-			this.resourceManagerClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED,
-					"Application " + this.getClass().getName() + " has finished" , null);
+			FinalApplicationStatus status = (this.error != null) ? FinalApplicationStatus.FAILED : FinalApplicationStatus.SUCCEEDED;
+			StringBuffer exitMessage = new StringBuffer();
+			exitMessage.append("Application " + this.applicationMasterName + " launched by " + this.getClass().getName() + " has finished");
+			if (status == FinalApplicationStatus.FAILED){
+				exitMessage.append(" with failure. Diagnostic information: " + this.error.getMessage());
+			}
+			else {
+				exitMessage.append(" successfully");
+			}
+			this.resourceManagerClient.unregisterApplicationMaster(status, exitMessage.toString() , null);
 			logger.info("Shutting down Node Manager Client");
 			this.nodeManagerClient.stop();
 			logger.info("Shutting down Resource Manager Client");

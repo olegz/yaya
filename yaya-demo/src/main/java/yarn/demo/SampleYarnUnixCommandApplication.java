@@ -25,13 +25,14 @@ public class SampleYarnUnixCommandApplication {
 	public static void main(String[] args) throws Exception {
 
 		// Create a command to be executed in the container launched by the Application Master
-		UnixApplicationContainerSpec unixContainer = new UnixApplicationContainerSpec("ls -all");
-		//applicationCommand.setContainerCount(2);
+		UnixApplicationContainerSpec unixContainer = new UnixApplicationContainerSpec("cal");
+		//unixContainer.setContainerCount(2);
 
 		// Create YARN application
 		YarnApplication yarnApplication = YarnApplicationBuilder.forApplication("sample-yarn-unix-app", unixContainer).
 				setMemory(2048).
 				setVirtualCores(2).
+				setMaxAttempts(4).
 				build();
 
 		// Start YARN application
