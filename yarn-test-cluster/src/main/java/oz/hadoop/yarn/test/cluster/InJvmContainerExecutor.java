@@ -209,7 +209,7 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 	private UserGroupInformation buildUgiForContainerLaunching(Container container, final Path containerWorkDir) {
 		UserGroupInformation ugi;
 		try {
-			ugi = UserGroupInformation.getCurrentUser();
+			ugi = UserGroupInformation.createRemoteUser(UserGroupInformation.getLoginUser().getUserName());
 		    ugi.setAuthenticationMethod(AuthMethod.TOKEN);
 			String filePath = new Path(containerWorkDir,ContainerLaunch.FINAL_CONTAINER_TOKENS_FILE).toString();
 			Credentials credentials = Credentials.readTokenStorageFile(new File(filePath), this.getConf());

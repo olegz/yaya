@@ -47,10 +47,10 @@ import org.json.simple.JSONObject;
 import oz.hadoop.yarn.api.utils.CollectionAssertUtils;
 
 /**
- * Default implementation of YARN Application Master. Currently YARN does not expose the Application Master
- * via any strategy, thus requiring any YARN-based application to implement its own from scratch.
- * The intention of this implementation of ApplicationMaster is to provide such strategy with enough default behavior
- * to allow most of the application containers to be deployed without ever implementing an ApplicationMaster.
+ * Generic implementation of YARN Application Master. Currently YARN does not expose an Application Master
+ * via any strategy, thus requiring any YARN-based application to implement its own from scratch as Java Main program.
+ * The intention of this implementation of Application Master is to implement general behavior to launch and manage your
+ * application container(s) without ever implementing an Application Master.
  *
  * @author Oleg Zhurakousky
  *
@@ -121,12 +121,12 @@ final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 			throw new IllegalArgumentException("Failed to create an instance of ApplicationMasterSpec", e);
 		}
 
-		this.executor = Executors.newFixedThreadPool(this.containerCount);
-		this.containerMonitor = new CountDownLatch(this.containerCount);
-
 		this.nodeManagerCallbaclHandler = this.applicationMasterSpec.buildNodeManagerCallbackHandler(this);
 		this.nodeManagerClient = new NMClientAsyncImpl(this.nodeManagerCallbaclHandler);
 		this.resourceManagerClient = AMRMClientAsync.createAMRMClientAsync(1000, this.applicationMasterSpec.buildResourceManagerCallbackHandler(this));
+
+		this.executor = Executors.newFixedThreadPool(this.containerCount);
+		this.containerMonitor = new CountDownLatch(this.containerCount);
 	}
 
 	/**
@@ -331,26 +331,38 @@ final class YarnApplicationMasterLauncher extends BaseContainerLauncher {
 			this.executor.shutdown();
 			logger.info("Unregistering the Application Master");
 			FinalApplicationStatus status = (this.error != null) ? FinalApplicationStatus.FAILED : FinalApplicationStatus.SUCCEEDED;
-			StringBuffer exitMessage = new StringBuffer();
-			exitMessage.append("Application " + this.applicationMasterName + " launched by " + this.getClass().getName() + " has finished");
-			if (status == FinalApplicationStatus.FAILED){
-				exitMessage.append(" with failure. Diagnostic information: " + this.error.getMessage());
-			}
-			else {
-				exitMessage.append(" successfully");
-			}
-			this.resourceManagerClient.unregisterApplicationMaster(status, exitMessage.toString() , null);
+			this.resourceManagerClient.unregisterApplicationMaster(status, this.generateExitMessage(status) , null);
 			logger.info("Shutting down Node Manager Client");
 			this.nodeManagerClient.stop();
 			logger.info("Shutting down Resource Manager Client");
 			this.resourceManagerClient.stop();
-			logger.info("Shut down");
+			logger.info("Shut down " + this.getClass().getName());
 		}
 		catch (Exception e) {
 			throw new IllegalStateException("Failed to shutdown " + this.getClass().getName(), e);
 		}
 	}
 
+	/**
+	 *
+	 * @param status
+	 * @return
+	 */
+	private String generateExitMessage(FinalApplicationStatus status){
+		StringBuffer exitMessage = new StringBuffer();
+		exitMessage.append("Application '");
+		exitMessage.append(this.applicationMasterName);
+		exitMessage.append("' launched by ");
+		exitMessage.append(this.getClass().getName());
+		exitMessage.append(" has finished");
+		if (status == FinalApplicationStatus.FAILED){
+			exitMessage.append(" with failure. Diagnostic information: " + this.error.getMessage());
+		}
+		else {
+			exitMessage.append(" successfully.");
+		}
+		return exitMessage.toString();
+	}
 	/**
 	 * Will create a {@link ContainerRequest} to the {@link ResourceManager}
 	 * to obtain an application container
