@@ -48,7 +48,7 @@ public class JavaBasedYarnApplicationClusterDemo {
 	 */
 	public static void main(String[] args) throws Exception {
 		YarnConfiguration yarnConfiguration = new YarnConfiguration();
-		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ReversedEchoContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ReverseMessageContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
 								containerCount(2).
 								memory(512).withApplicationMaster(yarnConfiguration).
 									maxAttempts(2).
@@ -62,7 +62,7 @@ public class JavaBasedYarnApplicationClusterDemo {
 	 * As name suggests this ApplicationContainer will reverse the input message printing it to 
 	 * the logs.
 	 */
-	public static class ReversedEchoContainer implements ApplicationContainer {
+	public static class ReverseMessageContainer implements ApplicationContainer {
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
 			inputMessage.rewind();
