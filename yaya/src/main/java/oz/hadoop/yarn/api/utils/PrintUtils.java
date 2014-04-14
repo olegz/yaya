@@ -15,6 +15,7 @@
  */
 package oz.hadoop.yarn.api.utils;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -66,6 +67,9 @@ public class PrintUtils {
 			else if (value instanceof Iterable<?>) {
 				buffer.append(doPrettyIterable((Iterable<?>) value, delimiter + TAB));
 			}
+			else if (value instanceof Object[]) {
+				buffer.append(doPrettyIterable(Arrays.asList((Object[])value), delimiter + TAB));
+			}
 			else {
 				buffer.append(value);
 			}
@@ -94,8 +98,11 @@ public class PrintUtils {
 			if (value instanceof Map){
 				buffer.append(doPrettyMap((Map<?, ?>) value, delimiter + TAB));
 			}
-			else if (value instanceof Iterable<?>){
+			else if (value instanceof Iterable<?>) {
 				buffer.append(doPrettyIterable((Iterable<?>) value, delimiter + TAB));
+			}
+			else if (value instanceof Object[]) {
+				buffer.append(doPrettyIterable(Arrays.asList((Object[])value), delimiter + TAB));
 			}
 			else {
 				buffer.append(value);
