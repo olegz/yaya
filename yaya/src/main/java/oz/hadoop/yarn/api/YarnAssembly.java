@@ -38,6 +38,22 @@ import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
 
 /**
+ * This class exposes an assembly DSL to build YARN Applications.
+ * It allows for setting of both Application Master and Application Container settings 
+ * while also providing a default settings.
+ * <br>
+ * Default setting for Application Master:<br> 
+ * maxAttempts = 1<br>
+ * priority = 0<br>
+ * queueName = "default"<br>
+ * memory = 512Mb<br>
+ * virtualCores = 1<br>
+ * 
+ * Default setting for Application Container:<br> 
+ * priority = 0<br>
+ * containerCount = 1<br>
+ * memory = 256Mb<br>
+ * virtualCores = 1<br>
  * 
  * 
  * @author Oleg Zhurakousky

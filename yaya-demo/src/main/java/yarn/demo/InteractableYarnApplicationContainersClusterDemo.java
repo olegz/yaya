@@ -61,7 +61,6 @@ public class InteractableYarnApplicationContainersClusterDemo {
 	 * 
 	 */
 	public static class DemoEchoContainer implements ApplicationContainer {
-
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
 			return inputMessage;
