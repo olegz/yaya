@@ -4,11 +4,12 @@ This project's main goal is to define a **simpler (developer friendly) YARN API*
 ### YARN could and should be as simple as:
 ```
 YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
-												containerCount(2).
-												memory(512).withApplicationMaster().
+										containerCount(4).
+										memory(512).
+										withApplicationMaster().
 													maxAttempts(2).
 													priority(2).
-													build("CommandBasedYarnApplicationDemo");
+													build("Simplest-Yarn-Application");
 		
 yarnApplication.launch();
 ```
