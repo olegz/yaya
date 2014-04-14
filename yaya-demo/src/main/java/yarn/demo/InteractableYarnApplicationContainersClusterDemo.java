@@ -26,6 +26,16 @@ import oz.hadoop.yarn.api.YarnAssembly;
 import oz.hadoop.yarn.api.net.ContainerDelegate;
 
 /**
+ * This demo showcases long-running reusable containers you can interact with
+ * by exchanging messages. This one (while trivial) demonstrates a simple YARN
+ * application which echoes back the message it receives and the calling client
+ * prints the echoed message.
+ * 
+ * This demo requires a valid YARN cluster (mini-cluster or full cluster) provided
+ * through YarnConfiguration. 
+ * 
+ * There is an identical demo that runs in YARN Emulator. Please see 
+ * InteractableYarnApplicationContainersEmulatorDemo.java in this package.
  * 
  * @author Oleg Zhurakousky
  * 
@@ -33,7 +43,7 @@ import oz.hadoop.yarn.api.net.ContainerDelegate;
 public class InteractableYarnApplicationContainersClusterDemo {
 
 	/**
-	 * @param args
+	 * Ensure valid YarnConfiguration is available in the classpath, then run.
 	 */
 	public static void main(String[] args) throws Exception {
 		YarnConfiguration yarnConfiguration = new YarnConfiguration();
