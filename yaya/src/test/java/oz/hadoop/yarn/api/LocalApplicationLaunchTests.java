@@ -72,9 +72,9 @@ public class LocalApplicationLaunchTests {
 		yarnApplication.shutDown();
 	}
 	
-	@Test//(timeout=2000)
+	@Test(timeout=3000)
 	public void validateContainerLaunchWithCommand() throws Exception {
-		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("date").
 												containerCount(2).
 												memory(512).withApplicationMaster().
 													maxAttempts(2).
@@ -82,7 +82,7 @@ public class LocalApplicationLaunchTests {
 													build("sample-yarn-application");
 		
 		yarnApplication.launch();
-		Thread.sleep(5000);
+		Thread.sleep(1000);
 		yarnApplication.shutDown();
 	}
 	

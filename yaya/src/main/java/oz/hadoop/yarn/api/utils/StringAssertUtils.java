@@ -15,7 +15,7 @@
  */
 package oz.hadoop.yarn.api.utils;
 
-import org.springframework.util.StringUtils;
+import org.springframework.util.Assert;
 
 /**
  *
@@ -29,7 +29,7 @@ public class StringAssertUtils {
 	 * @param value
 	 */
 	public static void assertNotEmptyAndNoSpaces(String value){
-		StringUtils.hasText(value);
+		Assert.hasText(value);
 		if (value.contains(" ")){
 			throw new IllegalArgumentException("'value' must not contain spaces");
 		}

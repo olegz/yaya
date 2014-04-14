@@ -36,6 +36,7 @@ import org.springframework.util.StringUtils;
 import oz.hadoop.yarn.api.net.ContainerDelegate;
 import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
+import oz.hadoop.yarn.api.utils.StringAssertUtils;
 
 /**
  * This class exposes an assembly DSL to build YARN Applications.
@@ -73,6 +74,7 @@ public final class YarnAssembly {
 	 * any input arguments, resulting in managed and interactable Application Containers. See its javadoc for more explanation. 
 	 */
 	public static WithVcPrMemCount<Void> forApplicationContainer(String command) {
+		Assert.hasText(command, "'command' must not be null or empty");
 		return createV(command, null, null, null);
 	}
 	
@@ -85,6 +87,8 @@ public final class YarnAssembly {
 	 *   
 	 */
 	public static WithVcPrMemCount<Void> forApplicationContainer(Class<? extends ApplicationContainer> applicationContainer, ByteBuffer arguments) {
+		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
+		Assert.notNull(arguments, "'arguments' must not be null");
 		return createV(null, applicationContainer, arguments, null);
 	}
 	
@@ -99,6 +103,9 @@ public final class YarnAssembly {
 	 * try execution using different JVM.   
 	 */
 	public static WithVcPrMemCount<Void> forApplicationContainer(Class<? extends ApplicationContainer> applicationContainer, ByteBuffer arguments, String javaShellPath) {
+		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
+		Assert.notNull(arguments, "'arguments' must not be null");
+		StringAssertUtils.assertNotEmptyAndNoSpaces(javaShellPath);
 		return createV(null, applicationContainer, arguments, javaShellPath);
 	}
 	
@@ -115,6 +122,8 @@ public final class YarnAssembly {
 	 *
 	 */
 	public static WithVcPrMemCount<ContainerDelegate[]> forApplicationContainer(Class<? extends ApplicationContainer> applicationContainer, String javaShellPath) {
+		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
+		StringAssertUtils.assertNotEmptyAndNoSpaces(javaShellPath);
 		return createC(null, applicationContainer, null, javaShellPath);
 	}
 	
@@ -128,6 +137,7 @@ public final class YarnAssembly {
 	 *
 	 */
 	public static WithVcPrMemCount<ContainerDelegate[]> forApplicationContainer(Class<? extends ApplicationContainer> applicationContainer) {
+		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
 		return createC(null, applicationContainer, null, null);
 	}
 	
@@ -194,6 +204,7 @@ public final class YarnAssembly {
 		public Object invoke(MethodInvocation invocation) throws Throwable {
 			Object[] arguments = invocation.getArguments();
 			Method method = invocation.getMethod();
+			String methodName = method.getName();
 			Class<?> returnType = method.getReturnType();
 			if (logger.isDebugEnabled()){
 				logger.debug("Invoking builder method: " + method);
@@ -209,12 +220,19 @@ public final class YarnAssembly {
 				this.specMap = masterSpec;
 				this.initializeMasterDefaults();
 				if (arguments.length == 1){
+					if (arguments[0] == null){
+						logger.warn("Passing YarnConfiguration as 'null' which is OK since the application will run in YARN Emulator");
+					}
 					this.specMap.put(YayaConstants.YARN_CONFIG, arguments[0]);
+				}
+				else {
+					logger.warn("Missing YarnConfiguration which is OK since the application will run in YARN Emulator");
 				}
 				pf.setInterfaces(returnType);
 				pf.addAdvice(this);
 			}
 			else if (method.getName().equals("build")){
+				Assert.hasText((String) arguments[0], "Argument for method '" + method + "' must not be null or empty");
 				this.specMap.put(YayaConstants.APPLICATION_NAME, arguments[0]);
 				Constructor<?> invocableConstructor = ReflectionUtils.getInvocableConstructor(applicationImplName, Map.class);
 				Object target = invocableConstructor.newInstance(this.specMap);
@@ -222,12 +240,25 @@ public final class YarnAssembly {
 				pf.setInterfaces(returnType);
 			}
 			else {	
-				this.specMap.put(keyName, arguments[0]);
 				Assert.isTrue(arguments.length == 1, "Wrong number of arguments. Expected 1, but was " + arguments.length);
 				Assert.notNull(arguments[0], "Argument for method '" + method + "' must not be null");
-				if (method.getParameterTypes()[0].isAssignableFrom(String.class)){
-					Assert.hasText((String) arguments[0], "Argument for method '" + method + "' must not be null or empty");
+				if (method.getParameterTypes()[0].isAssignableFrom(String.class)) {
+					if (methodName.equals("queueName")) {
+						String value = (String)arguments[0];
+						StringAssertUtils.assertNotEmptyAndNoSpaces(value);
+					}
+					else {
+						Assert.hasText((String) arguments[0], "Argument for method '" + method + "' must not be null or empty");
+					}
 				}
+				else if (methodName.equals("virtualCores") ||
+						 methodName.equals("containerCount") ||
+						 methodName.equals("memory") ||
+						 methodName.equals("maxAttempts")){
+					int value = ((Integer)arguments[0]).intValue();
+					Assert.isTrue(value > 0, "Value for argument in " + methodName + " must be > 0, was " + value);
+				}
+				this.specMap.put(keyName, arguments[0]);
 				pf.setInterfaces(returnType);
 				pf.addAdvice(this);
 			}
