@@ -15,6 +15,10 @@
  */
 package oz.hadoop.yarn.api;
 
+import java.nio.ByteBuffer;
+
+import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
+
 /**
  * Strategy for implementing java-based Applications Containers.
  * See {@link #launch(PrimitiveImmutableTypeMap)} method.
@@ -22,7 +26,7 @@ package oz.hadoop.yarn.api;
  * @author Oleg Zhurakousky
  *
  */
-public interface JavaApplicationContainer {
+public interface ApplicationContainer {
 
 	/**
 	 * This method takes {@link PrimitiveImmutableTypeMap} which contains
@@ -35,5 +39,5 @@ public interface JavaApplicationContainer {
 	 *
 	 * @param arguments
 	 */
-	public void launch(PrimitiveImmutableTypeMap arguments);
+	public ByteBuffer process(ByteBuffer input);
 }

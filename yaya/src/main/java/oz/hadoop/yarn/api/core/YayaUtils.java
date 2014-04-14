@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api;
+package oz.hadoop.yarn.api.core;
 
 import java.util.Map;
 import java.util.UUID;
@@ -22,13 +22,15 @@ import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 
+import oz.hadoop.yarn.api.YayaConstants;
+
 /**
  * Internal utilities used only by the framework. Not for public use.
  *
  * @author Oleg Zhurakousky
  *
  */
-class YayaUtils {
+public class YayaUtils {
 
 	/**
 	 *
@@ -65,11 +67,10 @@ class YayaUtils {
 	 * @param containerArguments
 	 */
 	public static void inJvmPrep(String containerType, ContainerLaunchContext containerLaunchContext, String containerLauncherName, String containerArguments){
-		if ("JAVA".equalsIgnoreCase(containerType)){
-			containerLaunchContext.getEnvironment().put(AbstractApplicationContainerSpec.CONTAINER_TYPE, "JAVA");
-			containerLaunchContext.getEnvironment().put(AbstractApplicationContainerSpec.CONTAINER_LAUNCHER, containerLauncherName);
-			containerLaunchContext.getEnvironment().put(AbstractApplicationContainerSpec.CONTAINER_SPEC_ARG, containerArguments);
-		}
+		Map<String, String> environment = containerLaunchContext.getEnvironment();
+		environment.put(YayaConstants.CONTAINER_TYPE, "JAVA");
+		environment.put(YayaConstants.CONTAINER_LAUNCHER, containerLauncherName);
+		environment.put(YayaConstants.CONTAINER_ARG, containerArguments);
 	}
 
 	/**
@@ -91,6 +92,8 @@ class YayaUtils {
 		commandBuffer.append(main);
 		commandBuffer.append(" ");
 		commandBuffer.append(arguments);
+		commandBuffer.append(" ");
+		commandBuffer.append(main);
 		commandBuffer.append(" ");
 		commandBuffer.append(" 1>");
 		commandBuffer.append(ApplicationConstants.LOG_DIR_EXPANSION_VAR);

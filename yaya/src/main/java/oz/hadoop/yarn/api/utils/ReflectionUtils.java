@@ -35,8 +35,9 @@ public class ReflectionUtils {
 	public static Method getMethodAndMakeAccessible(Class<?> clazz, String name, Class<?>... arguments) {
 		ObjectAssertUtils.assertNotNull(clazz);
 		StringAssertUtils.assertNotEmptyAndNoSpaces(name);
+		
 		try {
-			Method m = clazz.getDeclaredMethod(name, arguments);
+			Method m = org.springframework.util.ReflectionUtils.findMethod(clazz, name, arguments);
 			m.setAccessible(true);
 			return m;
 		}
@@ -97,8 +98,27 @@ public class ReflectionUtils {
 			Class<?> clazz = Class.forName(className);
 			Constructor<?> constructor = clazz.getDeclaredConstructor();
 			constructor.setAccessible(true);
+//			Object instance = clazz.newInstance();
 			Object instance = constructor.newInstance();
 			return instance;
+		}
+		catch (Exception e) {
+			throw new IllegalStateException("Failed to create instance of " + className + " using default constructor", e);
+		}
+	}
+	
+	/**
+	 * 
+	 * @param className
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> Constructor<T> getInvocableConstructor(String className, Class<?>... parameterTypes) {
+		try {
+			Class<?> clazz = Class.forName(className);
+			Constructor<T> constructor = (Constructor<T>) clazz.getDeclaredConstructor(parameterTypes);
+			constructor.setAccessible(true);
+			return constructor;
 		}
 		catch (Exception e) {
 			throw new IllegalStateException("Failed to create instance of " + className + " using default constructor", e);

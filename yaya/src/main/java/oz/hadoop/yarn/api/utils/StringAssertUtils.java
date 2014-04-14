@@ -14,28 +14,22 @@
  * limitations under the License.
  */
 package oz.hadoop.yarn.api.utils;
+
+import org.springframework.util.StringUtils;
+
 /**
  *
  * @author Oleg Zhurakousky
  *
  */
 public class StringAssertUtils {
-	/**
-	 *
-	 * @param value
-	 */
-	public static void assertNotEmpty(String value){
-		if (value == null || value.equals("")){
-			throw new IllegalArgumentException("'value' must not be null or empty");
-		}
-	}
 
 	/**
 	 *
 	 * @param value
 	 */
 	public static void assertNotEmptyAndNoSpaces(String value){
-		assertNotEmpty(value);
+		StringUtils.hasText(value);
 		if (value.contains(" ")){
 			throw new IllegalArgumentException("'value' must not contain spaces");
 		}

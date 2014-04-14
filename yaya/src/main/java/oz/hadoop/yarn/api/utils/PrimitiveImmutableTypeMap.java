@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api;
+package oz.hadoop.yarn.api.utils;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import oz.hadoop.yarn.api.utils.ObjectAssertUtils;
 
 /**
  * A convenience class for reading JSON Map in a type-safe way
@@ -43,7 +42,7 @@ public class PrimitiveImmutableTypeMap extends HashMap<String, Object> {
 	 *
 	 * @param map
 	 */
-	protected PrimitiveImmutableTypeMap(Map<String, Object> map) {
+	public PrimitiveImmutableTypeMap(Map<String, Object> map) {
 		super(map);
 	}
 
@@ -122,8 +121,7 @@ public class PrimitiveImmutableTypeMap extends HashMap<String, Object> {
 	 */
 	public boolean getBoolean(String key) {
 		Object value = this.get(key);
-		ObjectAssertUtils.assertNotNull(value);
-		return new Boolean(value.toString());
+		return value != null && new Boolean(value.toString());
 	}
 
 	/**

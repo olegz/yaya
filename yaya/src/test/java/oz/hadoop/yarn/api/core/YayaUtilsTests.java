@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api;
+package oz.hadoop.yarn.api.core;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URI;
@@ -30,6 +29,8 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.junit.Test;
+
+import oz.hadoop.yarn.api.YayaConstants;
 
 /**
  * @author Oleg Zhurakousky
@@ -47,25 +48,16 @@ public class YayaUtilsTests {
 	@Test
 	public void validateExecutionCommandGeneration(){
 		String name = YayaUtils.generateExecutionCommand("/user/bin/java", " -cp ./foo.jar:./bar.jsr", "foo.bar.Main", "bar baz", "my-app", "_AC_");
-		assertEquals("/user/bin/java -cp ./foo.jar:./bar.jsr foo.bar.Main bar baz  1><LOG_DIR>/my-app_AC__out 2><LOG_DIR>/my-app_AC__err", name);
+		assertEquals("/user/bin/java -cp ./foo.jar:./bar.jsr foo.bar.Main bar baz foo.bar.Main  1><LOG_DIR>/my-app_AC__out 2><LOG_DIR>/my-app_AC__err", name);
 	}
 
 	@Test
 	public void validateInJvmPrepForJava(){
 		ContainerLaunchContext containerLaunchContext = Records.newRecord(ContainerLaunchContext.class);
 		YayaUtils.inJvmPrep("JAVA", containerLaunchContext, "mylauncher", "bar baz");
-		assertEquals("JAVA", containerLaunchContext.getEnvironment().get(AbstractApplicationContainerSpec.CONTAINER_TYPE));
-		assertEquals("mylauncher", containerLaunchContext.getEnvironment().get(AbstractApplicationContainerSpec.CONTAINER_LAUNCHER));
-		assertEquals("bar baz", containerLaunchContext.getEnvironment().get(AbstractApplicationContainerSpec.CONTAINER_SPEC_ARG));
-	}
-
-	@Test
-	public void validateInJvmPrepForNonJava(){
-		ContainerLaunchContext containerLaunchContext = Records.newRecord(ContainerLaunchContext.class);
-		YayaUtils.inJvmPrep("foo", containerLaunchContext, "mylauncher", "bar baz");
-		assertNull(containerLaunchContext.getEnvironment().get(AbstractApplicationContainerSpec.CONTAINER_TYPE));
-		assertNull(containerLaunchContext.getEnvironment().get(AbstractApplicationContainerSpec.CONTAINER_LAUNCHER));
-		assertNull(containerLaunchContext.getEnvironment().get(AbstractApplicationContainerSpec.CONTAINER_SPEC_ARG));
+		assertEquals("JAVA", containerLaunchContext.getEnvironment().get(YayaConstants.CONTAINER_TYPE));
+		assertEquals("mylauncher", containerLaunchContext.getEnvironment().get(YayaConstants.CONTAINER_LAUNCHER));
+		assertEquals("bar baz", containerLaunchContext.getEnvironment().get(YayaConstants.CONTAINER_ARG));
 	}
 
 	@Test

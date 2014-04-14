@@ -119,6 +119,10 @@ project('yaya') {
 		all*.exclude group: "org.apache.commons", module: "commons-math3"
 	}
 	dependencies {
+		//compile "org.springframework:spring-context:4.0.3.RELEASE"
+		compile ("org.springframework:spring-aop:4.0.3.RELEASE") {
+			exclude group: "org.springframework", module: "spring-beans"
+		}
 	    compile "org.apache.hadoop:hadoop-yarn-client:$hadoopVersion"
 		compile "org.apache.hadoop:hadoop-common:$hadoopVersion"
 		compile "org.apache.hadoop:hadoop-hdfs:$hadoopVersion"

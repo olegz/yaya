@@ -13,28 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api;
+package oz.hadoop.yarn.api.net;
 
-import oz.hadoop.yarn.api.utils.StringAssertUtils;
+import java.nio.ByteBuffer;
 
 /**
- * A specification class for defining a Unix based YARN Application Container
- *
  * @author Oleg Zhurakousky
  *
  */
-public class UnixApplicationContainerSpec extends AbstractApplicationContainerSpec {
-
-	public final static String COMMAND = "command";
-
-	/**
-	 *
-	 * @param command
-	 */
-	public UnixApplicationContainerSpec(String command) {
-		super();
-		StringAssertUtils.assertNotEmpty(command);
-		StringAssertUtils.assertNotEmpty(command.trim());
-		this.addToContainerSpec(COMMAND, command);
-	}
+public interface ApplicationContainerMessageHandler {
+	
+	
+	ByteBuffer handle(ByteBuffer messageBuffer);
 }

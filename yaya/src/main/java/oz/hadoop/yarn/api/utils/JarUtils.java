@@ -90,6 +90,7 @@ public class JarUtils {
 
 			JarEntry entry = new JarEntry(path.replace("\\", "/").substring(1)); // avoiding absolute path warning
 			entry.setTime(source.lastModified());
+			
 			target.putNextEntry(entry);
 			in = new BufferedInputStream(new FileInputStream(source));
 

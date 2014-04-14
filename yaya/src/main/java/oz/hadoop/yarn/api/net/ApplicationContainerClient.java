@@ -13,20 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api;
-
-import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
-
+package oz.hadoop.yarn.api.net;
 
 /**
+ * 
  * @author Oleg Zhurakousky
  *
  */
-public interface YarnApplication<T> {
+public interface ApplicationContainerClient extends SocketHandler {
+	
+	public abstract void awaitShutdown();
 
-	T launch();
-	
-	void shutDown();
-	
-	PrimitiveImmutableTypeMap getApplicationSpecification();
 }

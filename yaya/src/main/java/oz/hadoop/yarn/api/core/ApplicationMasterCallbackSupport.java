@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api;
+package oz.hadoop.yarn.api.core;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -42,9 +42,9 @@ import org.apache.hadoop.yarn.server.nodemanager.NodeManager;
  * @author Oleg Zhurakousky
  *
  */
-class ApplicationMasterSpec {
+class ApplicationMasterCallbackSupport {
 
-	protected static final Log logger = LogFactory.getLog(ApplicationMasterSpec.class);
+	protected static final Log logger = LogFactory.getLog(ApplicationMasterCallbackSupport.class);
 
 	/**
 	 * Builds and instance of {@link AMRMClientAsync.CallbackHandler}
@@ -52,7 +52,7 @@ class ApplicationMasterSpec {
 	 * @param yarnApplicationMaster
 	 * @return
 	 */
-	protected AMRMClientAsync.CallbackHandler buildResourceManagerCallbackHandler(YarnApplicationMasterLauncher yarnApplicationMaster) {
+	protected AMRMClientAsync.CallbackHandler buildResourceManagerCallbackHandler(ApplicationMasterLauncher yarnApplicationMaster) {
 		return new ResourceManagerCallbackHandler(yarnApplicationMaster);
 	}
 
@@ -62,7 +62,7 @@ class ApplicationMasterSpec {
 	 * @param yarnApplicationMaster
 	 * @return
 	 */
-	protected NMClientAsync.CallbackHandler buildNodeManagerCallbackHandler(YarnApplicationMasterLauncher yarnApplicationMaster) {
+	protected NMClientAsync.CallbackHandler buildNodeManagerCallbackHandler(ApplicationMasterLauncher yarnApplicationMaster) {
 		return new NodeManagerCallbaclHandler();
 	}
 
@@ -120,9 +120,9 @@ class ApplicationMasterSpec {
 
 		private final AtomicInteger completedContainersCounter = new AtomicInteger();
 
-		private final YarnApplicationMasterLauncher applicationMaster;
+		private final ApplicationMasterLauncher applicationMaster;
 
-		public ResourceManagerCallbackHandler(YarnApplicationMasterLauncher applicationMaster) {
+		public ResourceManagerCallbackHandler(ApplicationMasterLauncher applicationMaster) {
 			this.applicationMaster = applicationMaster;
 		}
 
@@ -143,7 +143,7 @@ class ApplicationMasterSpec {
 		public void onContainersAllocated(List<Container> allocatedContainers) {
 			logger.info("Received allocated containers callback: " + allocatedContainers);
 			for (final Container allocatedContainer : allocatedContainers) {
-				this.applicationMaster.launchContainerAsync(allocatedContainer);
+				this.applicationMaster.launchContainer(allocatedContainer);
 			}
 		}
 
@@ -159,9 +159,7 @@ class ApplicationMasterSpec {
 
 		@Override
 		public float getProgress() {
-			float progress =
-					(float) this.completedContainersCounter.get() / this.applicationMaster.containerCount;
-			return progress;
+			return 0;
 		}
 
 		@Override

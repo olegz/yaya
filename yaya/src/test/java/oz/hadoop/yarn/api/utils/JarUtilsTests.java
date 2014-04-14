@@ -13,20 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api;
+package oz.hadoop.yarn.api.utils;
 
-import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
+import static junit.framework.Assert.assertFalse;
+import static junit.framework.Assert.assertTrue;
 
+import java.io.File;
+
+import org.junit.Test;
 
 /**
  * @author Oleg Zhurakousky
  *
  */
-public interface YarnApplication<T> {
+public class JarUtilsTests {
 
-	T launch();
-	
-	void shutDown();
-	
-	PrimitiveImmutableTypeMap getApplicationSpecification();
+	@Test
+	public void testJar(){
+		File jarFile = new File("test.jar");
+		assertFalse(jarFile.exists());
+		jarFile = JarUtils.toJar(new File(new File("src/main/java").getAbsolutePath()), "test.jar");
+		assertTrue(jarFile.exists());
+		jarFile.delete();
+		assertFalse(jarFile.exists());
+	}
 }

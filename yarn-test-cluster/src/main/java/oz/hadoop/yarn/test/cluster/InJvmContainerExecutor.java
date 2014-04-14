@@ -107,8 +107,8 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 			Path nmPrivateContainerScriptPath, Path nmPrivateTokensPath,
 			String userName, String appId, final Path containerWorkDir,
 			List<String> localDirs, List<String> logDirs) throws IOException {
-
-		if ("JAVA".equalsIgnoreCase(container.getLaunchContext().getEnvironment().get("containerType"))){
+		System.out.println("ENV: " + container.getLaunchContext().getEnvironment());
+		if ("JAVA".equalsIgnoreCase(container.getLaunchContext().getEnvironment().get("CONTAINER_TYPE"))){
 			this.prepareContainerDirectories(container, nmPrivateContainerScriptPath, nmPrivateTokensPath,
 					userName, appId, containerWorkDir, localDirs, logDirs);
 			return this.launchJavaContainer(container, containerWorkDir);
@@ -172,12 +172,12 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 		Map<String, String> environment = container.getLaunchContext().getEnvironment();
 		try {
 			URLClassLoader cl = new URLClassLoader(additionalClassPathUrls.toArray(new URL[] {}));
-			String main = environment.get("containerLauncher");
-			Class<?> amClass = Class.forName(main, true, cl);
+			String containerLauncher = environment.get("CONTAINER_LAUNCHER");
+			Class<?> amClass = Class.forName(containerLauncher, true, cl);
 			Method mainMethod = amClass.getMethod("main", new Class[] {String[].class});
 			mainMethod.setAccessible(true);
-			String mainArgs = environment.get("containerArguments");
-			String[] arguments = new String[]{mainArgs};
+			String mainArgs = environment.get("CONTAINER_ARG");
+			String[] arguments = new String[]{mainArgs, containerLauncher};
 			mainMethod.invoke(null, (Object) arguments);
 		}
 		catch (Exception e) {
