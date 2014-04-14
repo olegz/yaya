@@ -71,7 +71,7 @@ public class ApplicationContainerLauncher extends AbstractContainerLauncher {
 			byte[] decodedBytes = Base64.decodeBase64(containerArguments);
 			ByteBuffer reply = applicationContainer.process(ByteBuffer.wrap(decodedBytes));
 			
-			if (reply.limit() > 0){
+			if (reply != null && reply.limit() > 0){
 				reply.rewind();
 				logger.info("ApplicationContainer produced reply which will be logged to Standard out");
 				byte[] replyBytes = new byte[reply.limit()];

@@ -15,23 +15,25 @@
  */
 package yarn.demo;
 
+import java.nio.ByteBuffer;
+
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
-import oz.hadoop.yarn.api.YarnAssembly;
+import oz.hadoop.yarn.api.ApplicationContainer;
 import oz.hadoop.yarn.api.YarnApplication;
+import oz.hadoop.yarn.api.YarnAssembly;
 
 /**
- * Demo of Application Container(s) implemented as non-Java process.
+ * Demo of Application Container(s) implemented as Java process and runs in 
+ * YARN Cluster
  * 
- * It is setup to run in the valid cluster
- * 
- * There is an identical demo that runs in YARN Emulator. Please see 
- * CommandBasedYarnApplicationEmulatorDemo.java in this package.
+ * There is an identical demo that runs in YARN Cluster. Please see 
+ * JavaBasedYarnApplicationEmulatorDemo.java in this package.
  * 
  * @author Oleg Zhurakousky
  *
  */
-public class CommandBasedYarnApplicationClusterDemo {
+public class JavaBasedYarnApplicationClusterDemo {
 	
 	/**
 	 * Before running ensure that properly configured yarn-site.xml are copied
@@ -46,19 +48,35 @@ public class CommandBasedYarnApplicationClusterDemo {
 	 */
 	public static void main(String[] args) throws Exception {
 		YarnConfiguration yarnConfiguration = new YarnConfiguration();
-		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ReversedEchoContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
 								containerCount(2).
 								memory(512).withApplicationMaster(yarnConfiguration).
 									maxAttempts(2).
 									priority(2).
-									build("CommandBasedYarnApplicationDemo");
+									build("JavaBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
-		yarnApplication.shutDown();
-		/*
-		 * If running in the local mini-cluster check target/LOCAL_YARN_CLUSTER directory of mini-cluster project 
-		 * for application logs
-		 */
+	}
+	
+	/**
+	 * As name suggests this ApplicationContainer will reverse the input message printing it to 
+	 * the logs.
+	 */
+	public static class ReversedEchoContainer implements ApplicationContainer {
+		@Override
+		public ByteBuffer process(ByteBuffer inputMessage) {
+			inputMessage.rewind();
+			byte[] inputBytes = new byte[inputMessage.limit()];
+			inputMessage.get(inputBytes);
+			String strMessage = new String(inputBytes);
+			strMessage = new StringBuilder(strMessage).reverse().toString();
+			System.out.println("Processing input: " + strMessage);
+			return null;
+			// You can also return ByteBuffer, but since its a single task container
+			// the contents of the returned ByteBuffer will be logged.
+			
+			//return ByteBuffer.wrap(strMessage.getBytes());
+		}
 	}
 	
 }
