@@ -1,4 +1,4 @@
-rootProject.name = 'yarn-tutorial'
+rootProject.name = 'yaya'
 
 include 'yaya'
 include 'yaya-demo'
