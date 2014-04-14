@@ -4,27 +4,15 @@
 
 ### YARN could and should be as simple as:
 ```
-JavaApplicationContainerSpec appContainer = new JavaApplicationContainerSpec(MyJavaContainer.class);
-// or create a Unix application container
-UnixApplicationContainerSpec appContainer = new UnixApplicationContainerSpec("ls -all");
-
-// Create YARN application
-YarnApplication yarnApplication = 
-          YarnApplicationBuilder.forApplication("sample-yarn-app", appContainer).build();
-
-// Launch YARN application
+YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
+										containerCount(4).
+										memory(512).
+										withApplicationMaster().
+													maxAttempts(2).
+													priority(2).
+													build("Simplest-Yarn-Application");
+		
 yarnApplication.launch();
-```
-for Java here is a sample implementation of _MyJavaContainer_
-
-```
-private static class MyJavaContainer implements JavaApplicationContainer {
-    @Override
-    public void launch(PrimitiveImmutableTypeMap arguments) {
-        System.out.println("Hello Yarn");
-        System.out.println("Arguments: " + arguments);
-    }
-}
 ```
 
 ##### [Introduction](https://github.com/olegz/yarn-tutorial/wiki/Introduction)
