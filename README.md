@@ -1,32 +1,17 @@
 #### _Try and YARN in less then 5_
-This project has two main goals.
-
-1. _To serve as a **tutorial** for those who would like to learn YARN_
-2. _An attempt to define a **simpler (developer friendly) YARN API**, that the end user can use._ -  _Yet Another Yarn API_ (YAYA?)
+This project's main goal is to define a **simpler (developer friendly) YARN API**, that the end user can use, hence -  _Yet Another Yarn API_ (YAYA)
 
 ### YARN could and should be as simple as:
 ```
-JavaApplicationContainerSpec appContainer = new JavaApplicationContainerSpec(MyJavaContainer.class);
-// or create a Unix application container
-UnixApplicationContainerSpec appContainer = new UnixApplicationContainerSpec("ls -all");
-
-// Create YARN application
-YarnApplication yarnApplication = 
-          YarnApplicationBuilder.forApplication("sample-yarn-app", appContainer).build();
-
-// Launch YARN application
+YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
+												containerCount(2).
+												memory(512).withApplicationMaster().
+													maxAttempts(2).
+													priority(2).
+													build("CommandBasedYarnApplicationDemo");
+		
 yarnApplication.launch();
-```
-for Java here is a sample implementation of _MyJavaContainer_
-
-```
-private static class MyJavaContainer implements JavaApplicationContainer {
-    @Override
-    public void launch(PrimitiveImmutableTypeMap arguments) {
-        System.out.println("Hello Yarn");
-        System.out.println("Arguments: " + arguments);
-    }
-}
+yarnApplication.shutDown();
 ```
 
 ##### [Introduction](https://github.com/olegz/yarn-tutorial/wiki/Introduction)
