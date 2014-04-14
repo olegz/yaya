@@ -3,15 +3,13 @@
 **_YAYA_**	 is a set of common abstractions and an API to simplify development of applications using **YARN** 
 
 ### YARN could and should be as simple as:
+
 _**Unix command Application Container:**_
 ```
 YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
 										containerCount(4).
-										memory(512).
 										withApplicationMaster().
-													maxAttempts(2).
-													priority(2).
-													build("Simplest-Yarn-Application");
+												build("Simplest-Yarn-Command-Application");
 		
 yarnApplication.launch();
 ```
@@ -22,11 +20,9 @@ _**Java process Application Container:**_
 YarnConfiguration yarnConfiguration = new YarnConfiguration();
 YarnApplication<Void> yarnApplication = 
 	YarnAssembly.forApplicationContainer(ReverseMessageContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
-						containerCount(2).
-						memory(512).withApplicationMaster(yarnConfiguration).
-							maxAttempts(2).
-							priority(2).
-							build("JavaBasedYarnApplicationDemo");
+						containerCount(4).
+						withApplicationMaster(yarnConfiguration).
+							build("Simplest-Yarn-Java-Application");
 		
 yarnApplication.launch();
 
@@ -47,6 +43,7 @@ public static class ReverseMessageContainer implements ApplicationContainer {
 		}
 }
 ```
+
 ##### [Introduction](https://github.com/olegz/yarn-tutorial/wiki/Introduction)
 ##### [For Developers](https://github.com/olegz/yarn-tutorial/wiki/Developers)
 ##### [Core Features](https://github.com/olegz/yarn-tutorial/wiki/CoreFeatures)
