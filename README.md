@@ -11,7 +11,6 @@ YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("pi
 													build("CommandBasedYarnApplicationDemo");
 		
 yarnApplication.launch();
-yarnApplication.shutDown();
 ```
 
 ##### [Introduction](https://github.com/olegz/yarn-tutorial/wiki/Introduction)
