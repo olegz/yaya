@@ -90,10 +90,8 @@ public class LocalApplicationLaunchTests {
 	 * 
 	 */
 	public static class SimpleEchoContainer implements ApplicationContainer {
-
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
-			System.out.println("Inside of Application Container");
 			return inputMessage;
 		}
 	}
