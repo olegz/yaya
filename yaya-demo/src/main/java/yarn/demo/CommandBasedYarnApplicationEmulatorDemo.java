@@ -21,6 +21,9 @@ import oz.hadoop.yarn.api.YarnAssembly;
 /**
  * Demo of Application Container(s) implemented as non-Java process.
  * 
+ * There is an identical demo that runs in YARN Cluster. Please see 
+ * CommandBasedYarnApplicationClusterDemo.java in this package.
+ * 
  * @author Oleg Zhurakousky
  *
  */
@@ -32,11 +35,11 @@ public class CommandBasedYarnApplicationEmulatorDemo {
 	 */
 	public static void main(String[] args) throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
-												containerCount(2).
-												memory(512).withApplicationMaster().
-													maxAttempts(2).
-													priority(2).
-													build("CommandBasedYarnApplicationDemo");
+								containerCount(2).
+								memory(512).withApplicationMaster().
+									maxAttempts(2).
+									priority(2).
+									build("CommandBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
 		yarnApplication.shutDown();

@@ -23,6 +23,11 @@ import oz.hadoop.yarn.api.YarnApplication;
 /**
  * Demo of Application Container(s) implemented as non-Java process.
  * 
+ * It is setup to run in the valid cluster
+ * 
+ * There is an identical demo that runs in YARN Emulator. Please see 
+ * CommandBasedYarnApplicationEmulatorDemo.java in this package.
+ * 
  * @author Oleg Zhurakousky
  *
  */
@@ -42,11 +47,11 @@ public class CommandBasedYarnApplicationClusterDemo {
 	public static void main(String[] args) throws Exception {
 		YarnConfiguration yarnConfiguration = new YarnConfiguration();
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
-												containerCount(2).
-												memory(512).withApplicationMaster(yarnConfiguration).
-													maxAttempts(2).
-													priority(2).
-													build("CommandBasedYarnApplicationDemo");
+								containerCount(2).
+								memory(512).withApplicationMaster(yarnConfiguration).
+									maxAttempts(2).
+									priority(2).
+									build("CommandBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
 		yarnApplication.shutDown();
