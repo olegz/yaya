@@ -89,10 +89,16 @@ public class ContainerDelegate {
 	 */
 	private class ExecutionGoverningFuture implements Future<ByteBuffer> {
 		private final Future<ByteBuffer> targetFuture;
-
+		/**
+		 * 
+		 */
 		public ExecutionGoverningFuture(Future<ByteBuffer> targetFuture) {
 			this.targetFuture = targetFuture;
 		}
+		
+		/**
+		 * 
+		 */
 		@Override
 		public boolean cancel(boolean mayInterruptIfRunning) {
 			boolean canceled = this.targetFuture.cancel(mayInterruptIfRunning);
@@ -100,6 +106,9 @@ public class ContainerDelegate {
 			return canceled;
 		}
 
+		/**
+		 * 
+		 */
 		@Override
 		public boolean isCancelled() {
 			return this.targetFuture.isCancelled();
@@ -110,6 +119,9 @@ public class ContainerDelegate {
 			return this.targetFuture.isDone();
 		}
 
+		/**
+		 * 
+		 */
 		@Override
 		public ByteBuffer get() throws InterruptedException, ExecutionException {
 			ByteBuffer replyBuffer = this.targetFuture.get();
@@ -117,6 +129,9 @@ public class ContainerDelegate {
 			return replyBuffer;
 		}
 
+		/**
+		 * 
+		 */
 		@Override
 		public ByteBuffer get(long timeout, TimeUnit unit)
 				throws InterruptedException, ExecutionException,
@@ -124,7 +139,6 @@ public class ContainerDelegate {
 			ByteBuffer replyBuffer = this.targetFuture.get(timeout, unit);
 			executionGovernor.release();
 			return replyBuffer;
-		}
-		
+		}	
 	}
 }

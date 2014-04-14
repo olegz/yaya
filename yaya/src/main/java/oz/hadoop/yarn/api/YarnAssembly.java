@@ -55,7 +55,6 @@ import oz.hadoop.yarn.api.utils.ReflectionUtils;
  * memory = 256Mb<br>
  * virtualCores = 1<br>
  * 
- * 
  * @author Oleg Zhurakousky
  *
  */
@@ -337,7 +336,16 @@ public final class YarnAssembly {
 	}
 	
 	public interface ApplicationBuilderBuildable<T> {
+		/**
+		 * Will return {@link ApplicationMasterSpecBuilder} to configure 
+		 * Application Master
+		 */
 		ApplicationMasterSpecBuilder<T> withApplicationMaster();
+		/**
+		 * Will return {@link ApplicationMasterSpecBuilder} to configure
+		 * Application Master to be launched in the YARN Cluster identified
+		 * by {@link YarnConfiguration}.
+		 */
 		ApplicationMasterSpecBuilder<T> withApplicationMaster(YarnConfiguration yarnConfig);
 	}
 	
