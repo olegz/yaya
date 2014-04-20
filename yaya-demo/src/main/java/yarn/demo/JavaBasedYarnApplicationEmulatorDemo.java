@@ -60,11 +60,7 @@ public class JavaBasedYarnApplicationEmulatorDemo {
 			String strMessage = new String(inputBytes);
 			strMessage = new StringBuilder(strMessage).reverse().toString();
 			System.out.println("Processing input: " + strMessage);
-			return null;
-			// You can also return ByteBuffer, but since its a single task container
-			// the contents of the returned ByteBuffer will be logged.
-			
-			//return ByteBuffer.wrap(strMessage.getBytes());
+			return ByteBuffer.wrap(strMessage.getBytes());
 		}
 	}
 	

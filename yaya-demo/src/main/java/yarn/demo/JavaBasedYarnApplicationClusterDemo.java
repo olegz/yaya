@@ -71,8 +71,8 @@ public class JavaBasedYarnApplicationClusterDemo {
 			strMessage = new StringBuilder(strMessage).reverse().toString();
 			System.out.println("Processing input: " + strMessage);
 			return null;
-			// You can also return ByteBuffer, but since its a single task container
-			// the contents of the returned ByteBuffer will be logged.
+			// You can also return ByteBuffer, but since its a finite container
+			// the contents of the returned ByteBuffer will be logged (see JavaBasedYarnApplicationEmulatorDemo)
 			
 			//return ByteBuffer.wrap(strMessage.getBytes());
 		}
