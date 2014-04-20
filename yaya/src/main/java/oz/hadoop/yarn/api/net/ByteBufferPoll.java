@@ -23,7 +23,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 /**
- * Internal utility class used by Socket handlers ({@link ClientServer} & {@link ApplicationContainerClient}) 
+ * Internal utility class used by Socket handlers ({@link ApplicationContainerServer} & {@link ApplicationContainerClient}) 
  * in this package to manage pools of {@link ByteBuffer} essentially allowing used {@link ByteBuffer}s to be reused 
  * instead of reallocating memory.
  * 

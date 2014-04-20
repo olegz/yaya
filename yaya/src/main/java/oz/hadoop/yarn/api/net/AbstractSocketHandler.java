@@ -19,7 +19,9 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.ByteChannel;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NetworkChannel;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
@@ -45,13 +47,11 @@ import org.springframework.util.Assert;
  */
 abstract class AbstractSocketHandler {
 	
-	private final Log logger = LogFactory.getLog(AbstractSocketHandler.class);
+	private final Log logger = LogFactory.getLog(this.getClass());
 	
 	private final InetSocketAddress address;
 	
 	private final Selector selector;
-
-	private final ExecutorService executor;
 	
 	private final Runnable listenerTask;
 	
@@ -59,18 +59,20 @@ abstract class AbstractSocketHandler {
 	
 	private final ByteBuffer readingBuffer;
 	
-	private volatile boolean running;
-	
-//	int counter = 0;
-	
 	private final ByteBufferPoll bufferPoll;
+	
+	private final ShutdownAware disconnectAware;
+	
+	protected final ExecutorService executor;
+	
+	protected volatile boolean running;
 
 	/**
 	 * 
 	 * @param address
 	 * @param server
 	 */
-	public AbstractSocketHandler(InetSocketAddress address, boolean server){
+	public AbstractSocketHandler(InetSocketAddress address, boolean server, ShutdownAware disconnectAware){
 		Assert.notNull(address);
 
 		this.address = address;
@@ -78,11 +80,12 @@ abstract class AbstractSocketHandler {
 		this.listenerTask = new ListenerTask();
 		this.readingBuffer = ByteBuffer.allocate(8192);
 		this.bufferPoll = new ByteBufferPoll();
+		this.disconnectAware = disconnectAware;
 		try {
 			this.selector = Selector.open();
 			this.channel = server ? ServerSocketChannel.open() : SocketChannel.open();
-			if (logger.isInfoEnabled()){
-				logger.info("Created instance of " + this.getClass().getSimpleName());
+			if (logger.isDebugEnabled()){
+				logger.debug("Created instance of " + this.getClass().getSimpleName());
 			}
 		} 
 		catch (Exception e) {
@@ -93,7 +96,7 @@ abstract class AbstractSocketHandler {
 	/**
 	 * Will asynchronously start this socket handler (client or server)
 	 * returning the {@link SocketAddress} which represents server address for 
-	 * clients and bind address for server. See {@link ClientServerImpl} and {@link ApplicationContainerClientImpl}
+	 * clients and bind address for server. See {@link ApplicationContainerServerImpl} and {@link ApplicationContainerClientImpl}
 	 */
 	public InetSocketAddress start() {
 		InetSocketAddress serverAddress = this.address;
@@ -104,8 +107,8 @@ abstract class AbstractSocketHandler {
 				this.running = true;
 				this.executor.execute(this.listenerTask);
 				try {
-					if (logger.isInfoEnabled()){
-						logger.info("Started listener for " + AbstractSocketHandler.this.getClass().getSimpleName());
+					if (logger.isDebugEnabled()){
+						logger.debug("Started listener for " + AbstractSocketHandler.this.getClass().getSimpleName());
 					}	
 					serverAddress = (InetSocketAddress) this.channel.getLocalAddress();
 				} 
@@ -119,7 +122,6 @@ abstract class AbstractSocketHandler {
 		catch (Exception e) {
 			throw new IllegalStateException("Failed to start " + this.getClass().getName(), e);
 		}
-		
 	}
 	
 	/**
@@ -128,33 +130,36 @@ abstract class AbstractSocketHandler {
 	public void stop(){
 		try {
 			this.running = false;
-			if (logger.isInfoEnabled()){
-				logger.info("Stopped listener for " + AbstractSocketHandler.this.getClass().getSimpleName());
+			
+			if (logger.isDebugEnabled()){
+				logger.debug("Stopped listener for " + AbstractSocketHandler.this.getClass().getSimpleName());
 			}
 
 			synchronized (this) {
-				for (SelectionKey key : this.selector.keys()) {
-					SocketAddress channelAddress = null;
-					SelectableChannel channel = key.channel();
-					if (channel.isOpen()){
-						if (key.channel() instanceof SocketChannel){
-							channelAddress = ((SocketChannel)key.channel()).getRemoteAddress();
-						}
-						else {
-							channelAddress = ((NetworkChannel)key.channel()).getLocalAddress();
-						}
-						key.channel().close();
-						if (logger.isInfoEnabled()){
-							logger.info("Closing " + channelAddress);
+				if (this.selector.isOpen()){
+					for (SelectionKey key : this.selector.keys()) {
+						SocketAddress channelAddress = null;
+						SelectableChannel channel = key.channel();
+						if (channel.isOpen()){
+							if (key.channel() instanceof SocketChannel){
+								channelAddress = ((SocketChannel)key.channel()).getRemoteAddress();
+							}
+							else {
+								channelAddress = ((NetworkChannel)key.channel()).getLocalAddress();
+							}
+							key.channel().close();
+							if (logger.isDebugEnabled()){
+								logger.debug("Closing " + channelAddress);
+							}
 						}
 					}
+					this.selector.close();
 				}
-				this.selector.close();
 			}
 			
-			logger.info("Stopped socket handler for " + this.address);
-			this.executor.shutdown();
-			logger.info("Shut down executor");
+			logger.debug("Stopped socket handler for " + this.address);
+			this.executor.shutdownNow();
+			logger.debug("Shut down executor");
 		} 
 		catch (Exception e) {
 			logger.warn("Failed to close server socket", e);
@@ -221,8 +226,9 @@ abstract class AbstractSocketHandler {
 	}
 	
 	void onDisconnect(){
-		this.running = false;
-		executor.shutdown();
+		if (this.disconnectAware != null){
+			this.disconnectAware.preShutdown();
+		}
 	}
 	
 	/**
@@ -235,18 +241,31 @@ abstract class AbstractSocketHandler {
 		public void run() {
 			try {
 				while (AbstractSocketHandler.this.running){
-					if (AbstractSocketHandler.this.selector.isOpen() && AbstractSocketHandler.this.selector.select(100) > 0){	
-						synchronized (this) {
-							Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
-							this.processKeys(keys);
-						}
-					}
+					this.processSelector(100);
+//					if (AbstractSocketHandler.this.selector.isOpen() && AbstractSocketHandler.this.selector.select(100) > 0){	
+//						synchronized (this) {
+//							Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+//							processKeys(keys);
+//						}
+//					}
 				}
-				logger.info("Exiting Listener loop in " + AbstractSocketHandler.this.getClass().getSimpleName());
+				logger.debug("Exiting Listener loop in " + AbstractSocketHandler.this.getClass().getSimpleName());
 				onDisconnect();
 			} 
+			catch (AsynchronousCloseException e) {
+				logger.warn("Socket has been closed");
+			}
 			catch (Exception e) {
 				throw new IllegalStateException(e);
+			}
+		}
+		
+		private void processSelector(int timeout) throws Exception {
+			if (AbstractSocketHandler.this.selector.isOpen() && AbstractSocketHandler.this.selector.select(timeout) > 0){	
+				synchronized (this) {
+					Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+					processKeys(keys);
+				}
 			}
 		}
 		
@@ -305,7 +324,12 @@ abstract class AbstractSocketHandler {
 			}
 			selectionKey.attach(null);
 			((ByteChannel)selectionKey.channel()).write(writeBuffer);
-			selectionKey.channel().register(selector, SelectionKey.OP_READ);
+			try {
+				selectionKey.channel().register(selector, SelectionKey.OP_READ);
+			} 
+			catch (ClosedChannelException e) {
+				logger.warn("Socket was prematurely closed");
+			}
 		}
 		
 		/**
@@ -347,13 +371,11 @@ abstract class AbstractSocketHandler {
 			}
 	        
 	        if (count < 0) {
-	            if (logger.isInfoEnabled()){
-	            	logger.info("Connection closed by: " + socketChannel.socket().getRemoteSocketAddress() + ". Possible cause; " +
-	    					"ClientServer's 'expectedClientContainers' reached the limit.");
+	            if (logger.isDebugEnabled()){
+	            	logger.debug("Connection closed by: " + socketChannel.socket().getRemoteSocketAddress());
 	            }
 	            socketChannel.close();
-	            selectionKey.cancel();
-	            onDisconnect();
+	            AbstractSocketHandler.this.onDisconnect();
 	        }
 	    }
 	}

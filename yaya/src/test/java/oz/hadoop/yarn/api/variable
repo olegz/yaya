@@ -1,0 +1,9 @@
+#!/bin/bash
+x=0
+n=`jot -r 1  1 10`
+while [ $x  -le $n ]
+do
+	echo HELLO!
+	x=$(( $x + 1 ))
+	sleep 1
+done

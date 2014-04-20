@@ -25,12 +25,14 @@ import org.apache.hadoop.yarn.api.records.LocalResource;
 import oz.hadoop.yarn.api.YayaConstants;
 
 /**
+ * INTERNAL API
+ * 
  * Internal utilities used only by the framework. Not for public use.
  *
  * @author Oleg Zhurakousky
  *
  */
-public class YayaUtils {
+class YayaUtils {
 
 	/**
 	 *

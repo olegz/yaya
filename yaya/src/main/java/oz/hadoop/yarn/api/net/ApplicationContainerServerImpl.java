@@ -41,16 +41,16 @@ import org.springframework.util.Assert;
  * @author Oleg Zhurakousky
  * 
  */
-class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
+class ApplicationContainerServerImpl extends AbstractSocketHandler implements ApplicationContainerServer {
 	
-	private final Log logger = LogFactory.getLog(ClientServerImpl.class);
+	private final Log logger = LogFactory.getLog(ApplicationContainerServerImpl.class);
 	
 	private final Map<SelectionKey, ArrayBlockingQueue<ByteBuffer>> replyMap;
 	
 	private final CountDownLatch expectedClientContainersMonitor;
 	
 	private final int expectedClientContainers;
-
+	
 	private volatile int replyWaitTimeout;
 	
 	
@@ -59,8 +59,8 @@ class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
 	 * {@link InetAddress#getLocalHost()#getHostAddress()} and an 
 	 * ephemeral port selected by the system.
 	 */
-	public ClientServerImpl(int expectedClientContainers){
-		this(getDefaultAddress(), expectedClientContainers);
+	public ApplicationContainerServerImpl(int expectedClientContainers){
+		this(getDefaultAddress(), expectedClientContainers, null);
 	}
 	
 	/**
@@ -70,12 +70,22 @@ class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
 	 * @param address
 	 * @param expectedClientContainers
 	 */
-	public ClientServerImpl(InetSocketAddress address, int expectedClientContainers) {
-		super(address, true);
+	public ApplicationContainerServerImpl(InetSocketAddress address, int expectedClientContainers) {
+		this(address, expectedClientContainers, null);
+	}
+	
+	/**
+	 * 
+	 * @param address
+	 * @param expectedClientContainers
+	 * @param disconnectAware
+	 */
+	public ApplicationContainerServerImpl(InetSocketAddress address, int expectedClientContainers, ShutdownAware disconnectAware) {
+		super(address, true, disconnectAware);
 		Assert.isTrue(expectedClientContainers > 0, "'expectedClientContainers' must be > 0");
 		this.expectedClientContainers = expectedClientContainers;
 		this.replyMap = new HashMap<>();
-		this.replyWaitTimeout = 60;
+		this.replyWaitTimeout = Integer.MAX_VALUE;
 		this.expectedClientContainersMonitor = new CountDownLatch(expectedClientContainers);
 	}
 	
@@ -102,10 +112,10 @@ class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
 	}
 
 	/**
-	 * Performs message exchange session (request/reply) with the client identified by a {@link SelectionKey}.
+	 * Performs message exchange session (request/reply) with the client identified by the {@link SelectionKey}.
 	 * Message data is contained in 'buffer' parameter. 
 	 * 
-	 * The actual exchange happens asynchronously, so the return type is {@link Future} and return immediately.
+	 * The actual exchange happens asynchronously, so the return type is {@link Future} and returns immediately.
 	 * 
 	 * @param selectionKey
 	 * @param buffer
@@ -116,21 +126,30 @@ class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
 		Future<ByteBuffer> result = this.getExecutor().submit(new Callable<ByteBuffer>() {
 			@Override
 			public ByteBuffer call() throws Exception {
-				ByteBuffer reply = null;
-				try {
-					reply = ClientServerImpl.this.replyMap.get(selectionKey).poll(ClientServerImpl.this.replyWaitTimeout, TimeUnit.SECONDS);
-					if (logger.isInfoEnabled()){
-						logger.info("Receieved reply from " + ((SocketChannel)selectionKey.channel()).getRemoteAddress());
-					}
-				} 
-				catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-					logger.warn("Current thread was interrupted", e);
+				if (logger.isDebugEnabled()){
+					logger.debug("Waiting reply from " + ((SocketChannel)selectionKey.channel()).getRemoteAddress());
+				}
+				ByteBuffer reply = ApplicationContainerServerImpl.this.getReply(selectionKey, ApplicationContainerServerImpl.this.replyWaitTimeout);
+				if (logger.isDebugEnabled()){
+					logger.debug("Receieved reply from " + ((SocketChannel)selectionKey.channel()).getRemoteAddress());
 				}
 				return reply;
 			}
 		});
 		return result;
+	}
+	
+	/**
+	 * 
+	 */
+	ByteBuffer getReply(SelectionKey selectionKey, int replyTimeout){
+		try {
+			return this.replyMap.get(selectionKey).poll(replyTimeout, TimeUnit.MILLISECONDS);
+		} 
+		catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException(e);
+		}
 	}
 	
 	/**
@@ -161,7 +180,6 @@ class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
 				logger.warn("Refusing connection from " + channel.getRemoteAddress() + ", since " + 
 						this.expectedClientContainers + " ApplicationContainerClients " +
 						"identified by 'expectedClientContainers' already connected.");
-//				selectionKey.interestOps(0);
 				channel.close();
 			}
 			else {
@@ -180,12 +198,13 @@ class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
 	}
 	
 	/**
-	 * 
+	 * Unlike the client side the read on the server will happen using receiving thread,
+	 * since all it does is enqueues reply buffer to the dedicated queue
 	 */
 	@Override
 	void read(SelectionKey selectionKey, ByteBuffer messageBuffer) throws IOException {
-		if (logger.isInfoEnabled()){
-    		logger.info("Receiving and enqueuing result from " + ((SocketChannel)selectionKey.channel()).getRemoteAddress());
+		if (logger.isDebugEnabled()){
+    		logger.debug("Receiving and enqueuing result from " + ((SocketChannel)selectionKey.channel()).getRemoteAddress());
     	}
     	Queue<ByteBuffer> replyQueue = this.replyMap.get(selectionKey);
     	replyQueue.offer(messageBuffer);
@@ -198,9 +217,11 @@ class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
 	 */
 	List<SelectionKey> getClientSelectionKeys() {
 		List<SelectionKey> selectorKeys = new ArrayList<>();
-		for (SelectionKey selectionKey : this.getSelector().keys()) {
-			if (selectionKey.channel() instanceof SocketChannel){
-				selectorKeys.add(selectionKey);
+		if (this.getSelector().isOpen()){
+			for (SelectionKey selectionKey : this.getSelector().keys()) {
+				if (selectionKey.isValid() && selectionKey.channel() instanceof SocketChannel){
+					selectorKeys.add(selectionKey);
+				}
 			}
 		}
 		return selectorKeys;
@@ -213,7 +234,7 @@ class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
 	public ContainerDelegate[] getContainerDelegates(){
 		List<ContainerDelegate> containerDelegates = new ArrayList<>();
 		for (SelectionKey selectionKey : getClientSelectionKeys()) {
-			if (selectionKey.isValid()){
+			if (selectionKey.isValid() && selectionKey.selector().isOpen()){
 				containerDelegates.add(new ContainerDelegate(selectionKey, this));
 			}
 		}
@@ -223,7 +244,7 @@ class ClientServerImpl extends AbstractSocketHandler implements ClientServer {
 	/**
 	 * 
 	 */
-	private void doWrite(SelectionKey selectionKey, ByteBuffer buffer) {
+	void doWrite(SelectionKey selectionKey, ByteBuffer buffer) {
 		try {
 			ByteBuffer message = ByteBufferUtils.merge(ByteBuffer.allocate(4).putInt(buffer.limit() + 4), buffer);
 			message.flip();

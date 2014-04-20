@@ -20,7 +20,7 @@ import java.util.concurrent.Future;
 
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
-import oz.hadoop.yarn.api.ApplicationContainer;
+import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
 import oz.hadoop.yarn.api.net.ContainerDelegate;
@@ -48,7 +48,7 @@ public class InteractableYarnApplicationContainersClusterDemo {
 	public static void main(String[] args) throws Exception {
 		YarnConfiguration yarnConfiguration = new YarnConfiguration();
 		YarnApplication<ContainerDelegate[]> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
-				containerCount(2).
+				containerCount(4).
 				memory(256).withApplicationMaster(yarnConfiguration).
 					maxAttempts(2).
 					memory(512).
@@ -70,7 +70,7 @@ public class InteractableYarnApplicationContainersClusterDemo {
 	/**
 	 * 
 	 */
-	public static class DemoEchoContainer implements ApplicationContainer {
+	public static class DemoEchoContainer implements ApplicationContainerProcessor {
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
 			return inputMessage;

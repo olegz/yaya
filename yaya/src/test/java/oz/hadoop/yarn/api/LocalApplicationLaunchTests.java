@@ -16,13 +16,17 @@
 package oz.hadoop.yarn.api;
 
 import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 
 import org.junit.Test;
+import org.springframework.core.io.ClassPathResource;
 
 import oz.hadoop.yarn.api.net.ContainerDelegate;
 
@@ -31,9 +35,11 @@ import oz.hadoop.yarn.api.net.ContainerDelegate;
  *
  */
 public class LocalApplicationLaunchTests {
-
+	
+	private static AtomicInteger flag = new AtomicInteger();
+	
 	@Test(timeout=5000)
-	public void validatehLongLivedJavaContainerLaunch() throws Exception {
+	public void validateLongLivedJavaContainerLaunch() throws Exception {
 		YarnApplication<ContainerDelegate[]> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class).
 												containerCount(2).
 												memory(512).withApplicationMaster().
@@ -57,19 +63,76 @@ public class LocalApplicationLaunchTests {
 				assertEquals("Hello Yarn!-" + i, new String(replyBytes));
 			}
 		}
+		assertTrue(yarnApplication.isRunning());
 		yarnApplication.shutDown();
+		assertFalse(yarnApplication.isRunning());
 	}
 	
 	@Test(timeout=2000)
-	public void validateJavaContainerLaunchWithArguments() throws Exception {
+	public void validateJavaContainerLaunchWithArgumentsImediateShutdown() throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class, ByteBuffer.wrap("Hello".getBytes())).
 												containerCount(2).
 												memory(512).withApplicationMaster().
 													maxAttempts(2).
 													priority(2).
 													build("sample-yarn-application");
+		assertFalse(yarnApplication.isRunning());
 		yarnApplication.launch();
+		assertTrue(yarnApplication.isRunning());
 		yarnApplication.shutDown();
+		assertFalse(yarnApplication.isRunning());
+	}
+	
+	@Test(timeout=2000)
+	public void validateJavaContainerLaunchWithArgumentsLettingFinish() throws Exception {
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class, ByteBuffer.wrap("Hello".getBytes())).
+												containerCount(2).
+												memory(512).withApplicationMaster().
+													maxAttempts(2).
+													priority(2).
+													build("sample-yarn-application");
+		assertFalse(yarnApplication.isRunning());
+		yarnApplication.launch();
+		assertTrue(yarnApplication.isRunning());
+		Thread.sleep(500);
+		// note its going to assert true to not running without explicit shutdown 
+		assertFalse(yarnApplication.isRunning());
+	}
+	
+	@Test(timeout=5000)
+	public void validateJavaContainerLaunchWithArgumentsAndForcedShutdown() throws Exception {
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(InfiniteContainer.class, ByteBuffer.wrap("Hello".getBytes())).
+												containerCount(2).
+												memory(512).withApplicationMaster().
+													maxAttempts(2).
+													priority(2).
+													build("sample-yarn-application");
+		yarnApplication.launch();
+		Thread.sleep(4000);
+		// may be add is PartiallyRunning or somethig liek that to see which containers exited
+		assertTrue(yarnApplication.isRunning());
+		yarnApplication.shutDown();
+		assertFalse(yarnApplication.isRunning());
+	}
+	
+	@Test(timeout=5000)
+	public void validateJavaContainerLaunchWithArgumentsAndVariableProcessTimeWithForcedShutdown() throws Exception {
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(VariableProcessingTime.class, ByteBuffer.wrap("Hello".getBytes())).
+												containerCount(6).
+												memory(512).withApplicationMaster().
+													maxAttempts(2).
+													priority(2).
+													build("sample-yarn-application");
+		yarnApplication.launch();
+		assertEquals(6, yarnApplication.liveContainers());
+		while (yarnApplication.liveContainers() == 6){
+			LockSupport.parkNanos(10000);
+		}
+		assertTrue(yarnApplication.liveContainers() < 6);
+		assertTrue(yarnApplication.isRunning());
+		yarnApplication.shutDown();
+		assertEquals(0, yarnApplication.liveContainers());
+		assertFalse(yarnApplication.isRunning());
 	}
 	
 	@Test(timeout=3000)
@@ -81,17 +144,100 @@ public class LocalApplicationLaunchTests {
 													priority(2).
 													build("sample-yarn-application");
 		
+		assertEquals(0, yarnApplication.liveContainers());
 		yarnApplication.launch();
+		assertTrue(yarnApplication.isRunning());
+		assertEquals(2, yarnApplication.liveContainers());
 		Thread.sleep(1000);
+		assertFalse(yarnApplication.isRunning());
+		yarnApplication.shutDown();
+	}
+	
+	@Test(timeout=5000)
+	public void validateContainerLaunchWithInfiniteCommand() throws Exception {
+		ClassPathResource resource = new ClassPathResource("infinite", this.getClass());
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(resource.getFile().getAbsolutePath()).
+												containerCount(3).
+												memory(512).withApplicationMaster().
+													maxAttempts(2).
+													priority(2).
+													build("sample-yarn-application");
+		
+		assertEquals(0, yarnApplication.liveContainers());
+		assertFalse(yarnApplication.isRunning());
+		yarnApplication.launch();
+		assertTrue(yarnApplication.isRunning());
+		assertEquals(3, yarnApplication.liveContainers());
+		Thread.sleep(3000);
+		assertEquals(3, yarnApplication.liveContainers());
+		yarnApplication.shutDown();
+		assertEquals(0, yarnApplication.liveContainers());
+	}
+	
+	@Test(timeout=20000)
+	public void validateContainerLaunchWithVariableLengthCommandsUntillDone() throws Exception {
+		ClassPathResource resource = new ClassPathResource("variable", this.getClass());
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(resource.getFile().getAbsolutePath()).
+												containerCount(6).
+												withApplicationMaster().
+													build("sample-yarn-application");
+		
+		assertEquals(0, yarnApplication.liveContainers());
+		assertFalse(yarnApplication.isRunning());
+		yarnApplication.launch();
+		assertTrue(yarnApplication.isRunning());
+		int liveContainers = yarnApplication.liveContainers();
+		assertEquals(6, liveContainers);
+		do {
+			Thread.sleep(100);
+			int currentliveContainers = yarnApplication.liveContainers();
+			if (currentliveContainers < liveContainers){
+				System.out.println("Current live containers = " + currentliveContainers);
+				liveContainers = currentliveContainers;
+			}
+		} while (liveContainers > 0);
+		assertEquals(0, yarnApplication.liveContainers());
+		assertFalse(yarnApplication.isRunning());
 		yarnApplication.shutDown();
 	}
 	
 	/**
 	 * 
 	 */
-	public static class SimpleEchoContainer implements ApplicationContainer {
+	public static class SimpleEchoContainer implements ApplicationContainerProcessor {
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
+			return inputMessage;
+		}
+	}
+	
+	public static class InfiniteContainer implements ApplicationContainerProcessor {
+		@Override
+		public ByteBuffer process(ByteBuffer inputMessage) {
+			try {
+				while (true){
+					Thread.sleep(1000);
+				}
+			} catch (Exception e) {
+				// ignore
+			}
+			return inputMessage;
+		}
+	}
+	
+	public static class VariableProcessingTime implements ApplicationContainerProcessor {
+		int loopCount = flag.incrementAndGet() * 5;
+		
+		@Override
+		public ByteBuffer process(ByteBuffer inputMessage) {
+			try {
+				System.out.println("Will loop for " + loopCount);
+				for (int i = 0; i < loopCount; i++) {
+					Thread.sleep(500);
+				}
+			} catch (Exception e) {
+				// ignore
+			}
 			return inputMessage;
 		}
 	}

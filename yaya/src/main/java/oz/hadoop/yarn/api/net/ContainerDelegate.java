@@ -25,6 +25,9 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import oz.hadoop.yarn.api.YarnApplication;
 
 /**
@@ -37,10 +40,11 @@ import oz.hadoop.yarn.api.YarnApplication;
  * @author Oleg Zhurakousky
  */
 public class ContainerDelegate {
+	private final Log logger = LogFactory.getLog(ContainerDelegate.class);
 	
 	private final SelectionKey selectionKey;
 	
-	private final ClientServerImpl clientServer;
+	private final ApplicationContainerServerImpl clientServer;
 	
 	private final Semaphore executionGovernor;
 	
@@ -49,7 +53,7 @@ public class ContainerDelegate {
 	 * @param selectionKey
 	 * @param clientServer
 	 */
-	ContainerDelegate(SelectionKey selectionKey, ClientServerImpl clientServer){
+	ContainerDelegate(SelectionKey selectionKey, ApplicationContainerServerImpl clientServer){
 		this.selectionKey = selectionKey;
 		this.clientServer = clientServer;
 		this.executionGovernor = new Semaphore(1);
@@ -66,6 +70,43 @@ public class ContainerDelegate {
 		catch (Exception e) {
 			throw new IllegalStateException(e);
 		}
+	}
+	
+	/**
+	 * Will attempt to terminate the Application Container represented by this delegate
+	 * immediately.
+	 */
+	public void terminate() {
+		
+	}
+	
+	/**
+	 * Will attempt to shut down the Application Container gracefully waiting for
+	 * it to complete its task
+	 */
+	public void shutDown(){
+
+	}
+	
+	/**
+	 * Will attempt to shut down the Application Container gracefully waiting for
+	 * it to complete its task within specified timeout. It will return 'true'
+	 * if task completed and Application Container was shut down and 'false'
+	 * if it wasn't after which you may choose to terminate it by calling {@link #terminate()}
+	 * method.
+	 */
+	public boolean shutDown(int timeout){
+		return false;
+	}
+	
+	/**
+	 * Will return 'true' if the Application Container represented by this
+	 * delegate is running and false if its not (shut down or terminated).
+	 * 
+	 * @return
+	 */
+	public boolean isRunning(){
+		return false;
 	}
 	
 	/**
@@ -101,9 +142,19 @@ public class ContainerDelegate {
 		 */
 		@Override
 		public boolean cancel(boolean mayInterruptIfRunning) {
-			boolean canceled = this.targetFuture.cancel(mayInterruptIfRunning);
-			executionGovernor.release();
-			return canceled;
+			try {
+				boolean canceled = this.targetFuture.cancel(mayInterruptIfRunning);
+				ContainerDelegate.this.executionGovernor.release();
+				return canceled;
+			} 
+			finally {
+				try {
+					ContainerDelegate.this.selectionKey.channel().close();
+				} 
+				catch (Exception e) {
+					logger.warn("Exception during channel close", e);
+				}
+			}
 		}
 
 		/**
@@ -125,7 +176,7 @@ public class ContainerDelegate {
 		@Override
 		public ByteBuffer get() throws InterruptedException, ExecutionException {
 			ByteBuffer replyBuffer = this.targetFuture.get();
-			executionGovernor.release();
+			ContainerDelegate.this.executionGovernor.release();
 			return replyBuffer;
 		}
 
@@ -134,10 +185,9 @@ public class ContainerDelegate {
 		 */
 		@Override
 		public ByteBuffer get(long timeout, TimeUnit unit)
-				throws InterruptedException, ExecutionException,
-				TimeoutException {
+				throws InterruptedException, ExecutionException, TimeoutException {
 			ByteBuffer replyBuffer = this.targetFuture.get(timeout, unit);
-			executionGovernor.release();
+			ContainerDelegate.this.executionGovernor.release();
 			return replyBuffer;
 		}	
 	}

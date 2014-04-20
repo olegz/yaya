@@ -24,7 +24,7 @@ package oz.hadoop.yarn.api.net;
  * @author Oleg Zhurakousky
  *
  */
-public interface ClientServer extends SocketHandler {
+public interface ApplicationContainerServer extends SocketHandler {
 
 	/**
 	 * Sets the wait time (in seconds) to receive a reply from the {@link ApplicationContainerClient}.

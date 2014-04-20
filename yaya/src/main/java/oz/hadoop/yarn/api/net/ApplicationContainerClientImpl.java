@@ -19,12 +19,14 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 
 /**
  * Implementation of network client to enable communication between the 
@@ -45,12 +47,12 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 	
 	/**
 	 * Connects and instance of ApplicationContainerClient for a provided {@link SocketAddress}
-	 * which points to the running server (see {@link ClientServerImpl})
+	 * which points to the running server (see {@link ApplicationContainerServerImpl})
 	 * 
 	 * @param address
 	 */
 	public ApplicationContainerClientImpl(InetSocketAddress address, ApplicationContainerMessageHandler messageHandler){
-		super(address, false);
+		super(address, false, null);
 		this.messageHandler = messageHandler;
 		this.lifeCycleLatch = new CountDownLatch(1);
 	}
@@ -65,13 +67,17 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 		}
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			logger.warn("Current thread was interrupted", e);
+			logger.warn("Interrupted while waiting for shutdown", e);
 		}
 	}
 	
-	void onDisconnect(){
+	@Override
+	void onDisconnect() {
 		super.onDisconnect();
+		this.running = false;
+		this.executor.shutdown();
 		this.lifeCycleLatch.countDown();
+		this.messageHandler.onDisconnect();
 	}
 	
 	/**
@@ -124,8 +130,14 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 			ByteBuffer replyBuffer = ApplicationContainerClientImpl.this.messageHandler.handle(this.messageBuffer);
 			ByteBuffer message = ByteBufferUtils.merge(ByteBuffer.allocate(4).putInt(replyBuffer.limit() + 4), replyBuffer);
 			message.flip();
-			this.selectionKey.attach(message);
-			this.selectionKey.interestOps(SelectionKey.OP_WRITE);
+			try {
+				this.selectionKey.attach(message);
+				this.selectionKey.interestOps(SelectionKey.OP_WRITE);
+			} 
+			catch (CancelledKeyException e) {
+				// may happen when client kills connection before receiving a reply
+				logger.warn("Selection Key was canceled. No reply will be sent");
+			}
 		}
 	}
 }

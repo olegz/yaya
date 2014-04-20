@@ -74,4 +74,13 @@
     <value>4</value>
     <description>Number of CPU cores that can be allocated for containers.</description>
   </property>
+  
+  <property>
+  	<name>yarn.resourcemanager.container.liveness-monitor.interval-ms</name>
+  	<value>1000</value>
+  </property>
+<!--   <property> -->
+<!--   	<name>yarn.am.liveness-monitor.expiry-interval-ms</name> -->
+<!--   	<value>1000</value> -->
+<!--   </property> -->
 </configuration>

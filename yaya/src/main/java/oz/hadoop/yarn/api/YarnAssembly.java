@@ -67,10 +67,10 @@ public final class YarnAssembly {
 	
 	/**
 	 * Factory method which allows one to define specification for Command-based (e.g., unix, perl etc)  Yarn Application 
-	 * which executes as a task implemented by a provided {@link ApplicationContainer} class using input arguments 
+	 * which executes as a task implemented by a provided {@link ApplicationContainerProcessor} class using input arguments 
 	 * as {@link ByteBuffer} and exiting upon completion.
 	 * <br>
-	 * Semantically this factory method is quite different then the factory method which takes {@link ApplicationContainer} without
+	 * Semantically this factory method is quite different then the factory method which takes {@link ApplicationContainerProcessor} without
 	 * any input arguments, resulting in managed and interactable Application Containers. See its javadoc for more explanation. 
 	 */
 	public static WithVcPrMemCount<Void> forApplicationContainer(String command) {
@@ -80,13 +80,13 @@ public final class YarnAssembly {
 	
 	/**
 	 * Factory method which allows one to define specification for Java-based Yarn Application which executes as a task implemented by a 
-	 * provided {@link ApplicationContainer} class using input arguments as {@link ByteBuffer} and exiting upon completion.
+	 * provided {@link ApplicationContainerProcessor} class using input arguments as {@link ByteBuffer} and exiting upon completion.
 	 * <br>
-	 * Semantically this factory method is quite different then the factory method which takes {@link ApplicationContainer} without
+	 * Semantically this factory method is quite different then the factory method which takes {@link ApplicationContainerProcessor} without
 	 * any input arguments, resulting in managed and interactable Application Containers. See its javadoc for more explanation. 
 	 *   
 	 */
-	public static WithVcPrMemCount<Void> forApplicationContainer(Class<? extends ApplicationContainer> applicationContainer, ByteBuffer arguments) {
+	public static WithVcPrMemCount<Void> forApplicationContainer(Class<? extends ApplicationContainerProcessor> applicationContainer, ByteBuffer arguments) {
 		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
 		Assert.notNull(arguments, "'arguments' must not be null");
 		return createV(null, applicationContainer, arguments, null);
@@ -94,15 +94,15 @@ public final class YarnAssembly {
 	
 	/**
 	 * Factory method which allows one to define specification for Java-based Yarn Application which executes as a task implemented by a 
-	 * provided {@link ApplicationContainer} class using input arguments as {@link ByteBuffer} and exiting upon completion.
+	 * provided {@link ApplicationContainerProcessor} class using input arguments as {@link ByteBuffer} and exiting upon completion.
 	 * <br>
-	 * Semantically this factory method is quite different then the factory method which takes {@link ApplicationContainer} without
+	 * Semantically this factory method is quite different then the factory method which takes {@link ApplicationContainerProcessor} without
 	 * any input arguments, resulting in managed and interactable Application Containers. See its javadoc for more explanation. 
 	 * <br>
 	 * This factory method also allows you to provide a path to java shell (default: 'java'). It can be useful when you may want to 
 	 * try execution using different JVM.   
 	 */
-	public static WithVcPrMemCount<Void> forApplicationContainer(Class<? extends ApplicationContainer> applicationContainer, ByteBuffer arguments, String javaShellPath) {
+	public static WithVcPrMemCount<Void> forApplicationContainer(Class<? extends ApplicationContainerProcessor> applicationContainer, ByteBuffer arguments, String javaShellPath) {
 		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
 		Assert.notNull(arguments, "'arguments' must not be null");
 		StringAssertUtils.assertNotEmptyAndNoSpaces(javaShellPath);
@@ -114,14 +114,14 @@ public final class YarnAssembly {
 	 * Such containers are long lived and could be interacted with by exchanging messages as {@link ByteBuffer}s.
 	 * For more details on Application Container interaction please see {@link ContainerDelegate} and {@link YarnApplication} javadocs.
 	 * <br>
-	 * Semantically this factory method is quite different then the factory methods which take {@link ApplicationContainer} 
+	 * Semantically this factory method is quite different then the factory methods which take {@link ApplicationContainerProcessor} 
 	 * and {@link ByteBuffer} arguments, creating short-lived Application Containers. See its javadoc for more explanation.  
 	 * <br>
 	 * This factory method also allows you to provide a path to java shell (default: 'java'). It can be useful when you may want to 
 	 * try execution using different JVM.   
 	 *
 	 */
-	public static WithVcPrMemCount<ContainerDelegate[]> forApplicationContainer(Class<? extends ApplicationContainer> applicationContainer, String javaShellPath) {
+	public static WithVcPrMemCount<ContainerDelegate[]> forApplicationContainer(Class<? extends ApplicationContainerProcessor> applicationContainer, String javaShellPath) {
 		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
 		StringAssertUtils.assertNotEmptyAndNoSpaces(javaShellPath);
 		return createC(null, applicationContainer, null, javaShellPath);
@@ -132,11 +132,11 @@ public final class YarnAssembly {
 	 * Such containers are long lived and could be interacted with by exchanging messages as {@link ByteBuffer}s.
 	 * For more details on Application Container interaction please see {@link ContainerDelegate} and {@link YarnApplication} javadocs.
 	 * <br>
-	 * Semantically this factory method is quite different then the factory methods which take {@link ApplicationContainer} 
+	 * Semantically this factory method is quite different then the factory methods which take {@link ApplicationContainerProcessor} 
 	 * and {@link ByteBuffer} arguments, creating short-lived Application Containers. See its javadoc for more explanation.   
 	 *
 	 */
-	public static WithVcPrMemCount<ContainerDelegate[]> forApplicationContainer(Class<? extends ApplicationContainer> applicationContainer) {
+	public static WithVcPrMemCount<ContainerDelegate[]> forApplicationContainer(Class<? extends ApplicationContainerProcessor> applicationContainer) {
 		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
 		return createC(null, applicationContainer, null, null);
 	}
@@ -145,7 +145,7 @@ public final class YarnAssembly {
 	 * 
 	 */
 	@SuppressWarnings("unchecked")
-	private static WithVcPrMemCount<Void> createV(String command, Class<? extends ApplicationContainer> applicationContainer, ByteBuffer arguments, String javaShellPath) {
+	private static WithVcPrMemCount<Void> createV(String command, Class<? extends ApplicationContainerProcessor> applicationContainer, ByteBuffer arguments, String javaShellPath) {
 		ProxyFactory pf = new ProxyFactory();
 		pf.setInterfaces(WithVcPrMemCount.class);
 		AssemblyAdvice assemblyAdvice = new AssemblyAdvice(command, applicationContainer, arguments, javaShellPath);
@@ -158,7 +158,7 @@ public final class YarnAssembly {
 	 * 
 	 */
 	@SuppressWarnings("unchecked")
-	private static WithVcPrMemCount<ContainerDelegate[]> createC(String command, Class<? extends ApplicationContainer> applicationContainer, ByteBuffer arguments, String javaShellPath) {
+	private static WithVcPrMemCount<ContainerDelegate[]> createC(String command, Class<? extends ApplicationContainerProcessor> applicationContainer, ByteBuffer arguments, String javaShellPath) {
 		ProxyFactory pf = new ProxyFactory();
 		pf.setInterfaces(WithVcPrMemCount.class);
 		AssemblyAdvice assemblyAdvice = new AssemblyAdvice(command, applicationContainer, arguments, javaShellPath);
@@ -177,7 +177,7 @@ public final class YarnAssembly {
 		/**
 		 * 
 		 */
-		AssemblyAdvice(String command, Class<? extends ApplicationContainer> applicationContainer, ByteBuffer arguments, String javaShellPath){
+		AssemblyAdvice(String command, Class<? extends ApplicationContainerProcessor> applicationContainer, ByteBuffer arguments, String javaShellPath){
 			if (StringUtils.hasText(command)){
 				this.specMap.put(YayaConstants.COMMAND, command);
 			}

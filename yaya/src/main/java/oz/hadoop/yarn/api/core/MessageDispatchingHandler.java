@@ -16,14 +16,22 @@
 package oz.hadoop.yarn.api.core;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import oz.hadoop.yarn.api.ApplicationContainer;
+import oz.hadoop.yarn.api.ApplicationContainerProcessor;
+import oz.hadoop.yarn.api.net.ApplicationContainerClient;
 import oz.hadoop.yarn.api.net.ApplicationContainerMessageHandler;
+import oz.hadoop.yarn.api.net.ApplicationContainerServer;
 
 /**
+ * INTERNAL API
+ * 
+ * Is bound to {@link ApplicationContainerClient} and will dispatch messages coming from 
+ * {@link ApplicationContainerServer} to the provided {@link ApplicationContainerProcessor}.
+ * 
  * @author Oleg Zhurakousky
  *
  */
@@ -31,18 +39,42 @@ class MessageDispatchingHandler implements ApplicationContainerMessageHandler {
 	
 	private final static Log logger = LogFactory.getLog(MessageDispatchingHandler.class);
 	
-	private final ApplicationContainer applicationContainer;
+	private final ApplicationContainerProcessor applicationContainer;
 	
-	public MessageDispatchingHandler(ApplicationContainer applicationContainer){
+	private final CountDownLatch disconnectMonitor;
+	/**
+	 * 
+	 * @param applicationContainer
+	 * @param disconnectMonitor
+	 */
+	public MessageDispatchingHandler(ApplicationContainerProcessor applicationContainer, CountDownLatch disconnectMonitor){
 		this.applicationContainer = applicationContainer;
+		this.disconnectMonitor = disconnectMonitor;
 	}
 
+	/**
+	 * 
+	 */
 	@Override
 	public ByteBuffer handle(ByteBuffer messageBuffer) {
 		if (logger.isDebugEnabled()){
 			logger.debug("Handling buffer: " + messageBuffer);
 		}
-		ByteBuffer reply = this.applicationContainer.process(messageBuffer);
+		ByteBuffer reply = null;
+		if (this.applicationContainer != null){
+			reply = this.applicationContainer.process(messageBuffer);
+		}
 		return reply;
+	}
+
+	/**
+	 * 
+	 */
+	@Override
+	public void onDisconnect() {
+		if (logger.isDebugEnabled()){
+			logger.debug("Received onDisconnect event");
+		}
+		this.disconnectMonitor.countDown();
 	}
 }

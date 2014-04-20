@@ -19,7 +19,7 @@ import java.nio.ByteBuffer;
 
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
-import oz.hadoop.yarn.api.ApplicationContainer;
+import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
 
@@ -49,20 +49,19 @@ public class JavaBasedYarnApplicationClusterDemo {
 	public static void main(String[] args) throws Exception {
 		YarnConfiguration yarnConfiguration = new YarnConfiguration();
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ReverseMessageContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
-								containerCount(2).
-								memory(512).withApplicationMaster(yarnConfiguration).
+								containerCount(4).
+								withApplicationMaster(yarnConfiguration).
 									maxAttempts(2).
-									priority(2).
 									build("JavaBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
 	}
 	
 	/**
-	 * As name suggests this ApplicationContainer will reverse the input message printing it to 
+	 * As name suggests this ApplicationContainerProcessor will reverse the input message printing it to 
 	 * the logs.
 	 */
-	public static class ReverseMessageContainer implements ApplicationContainer {
+	public static class ReverseMessageContainer implements ApplicationContainerProcessor {
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
 			inputMessage.rewind();

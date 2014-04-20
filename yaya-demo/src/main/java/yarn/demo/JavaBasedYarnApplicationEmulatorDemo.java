@@ -17,7 +17,7 @@ package yarn.demo;
 
 import java.nio.ByteBuffer;
 
-import oz.hadoop.yarn.api.ApplicationContainer;
+import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
 
@@ -32,7 +32,7 @@ import oz.hadoop.yarn.api.YarnAssembly;
  *
  */
 public class JavaBasedYarnApplicationEmulatorDemo {
-	
+
 	/**
 	 * This demo will run in the YARN Emulator and requires no preparation. 
 	 * Just hit run and see your output in the console.
@@ -40,20 +40,18 @@ public class JavaBasedYarnApplicationEmulatorDemo {
 	 */
 	public static void main(String[] args) throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ReverseMessageContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
-								containerCount(2).
-								memory(512).withApplicationMaster().
-									maxAttempts(2).
-									priority(2).
+								containerCount(4).
+								withApplicationMaster().
 									build("JavaBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
 	}
 	
 	/**
-	 * As name suggests this ApplicationContainer will reverse the input message printing it to 
+	 * As name suggests this ApplicationContainerProcessor will reverse the input message printing it to 
 	 * the logs.
 	 */
-	public static class ReverseMessageContainer implements ApplicationContainer {
+	public static class ReverseMessageContainer implements ApplicationContainerProcessor {
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
 			inputMessage.rewind();

@@ -15,16 +15,11 @@
  */
 package oz.hadoop.yarn.api.net;
 
-import java.nio.ByteBuffer;
-
 /**
  * @author Oleg Zhurakousky
  *
  */
-public interface ApplicationContainerMessageHandler {
-	
-	
-	ByteBuffer handle(ByteBuffer messageBuffer);
-	
-	void onDisconnect();
+public interface ShutdownAware {
+
+	void preShutdown();
 }

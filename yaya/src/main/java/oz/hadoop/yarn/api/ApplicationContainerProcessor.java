@@ -26,7 +26,7 @@ import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
  * @author Oleg Zhurakousky
  *
  */
-public interface ApplicationContainer {
+public interface ApplicationContainerProcessor {
 
 	/**
 	 * This method takes {@link PrimitiveImmutableTypeMap} which contains

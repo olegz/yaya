@@ -17,8 +17,8 @@ package yarn.demo;
 
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
-import oz.hadoop.yarn.api.YarnAssembly;
 import oz.hadoop.yarn.api.YarnApplication;
+import oz.hadoop.yarn.api.YarnAssembly;
 
 /**
  * Demo of Application Container(s) implemented as non-Java process.
@@ -46,14 +46,20 @@ public class CommandBasedYarnApplicationClusterDemo {
 	 */
 	public static void main(String[] args) throws Exception {
 		YarnConfiguration yarnConfiguration = new YarnConfiguration();
-		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
-								containerCount(2).
-								memory(512).withApplicationMaster(yarnConfiguration).
-									maxAttempts(2).
-									priority(2).
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping google.com").
+								containerCount(4).
+								withApplicationMaster(yarnConfiguration).
 									build("CommandBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
+		
+		/*
+		 * As you can see this demo is slightly different then its Emulated counterpart.
+		 * It demonstrates command which will result in infinite process. So essentially this demo demonstrates 
+		 * how a such process could be terminated.  
+		 */
+		Thread.sleep(10000);
+		
 		yarnApplication.shutDown();
 		/*
 		 * If running in the local mini-cluster check target/LOCAL_YARN_CLUSTER directory of mini-cluster project 

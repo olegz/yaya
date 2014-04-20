@@ -123,13 +123,13 @@ public class YarnAssemblyTests {
 		ApplicationMasterSpecBuilder<Void> applicationMasterBuilder = YarnAssembly.forApplicationContainer("ls -all").withApplicationMaster();
 		YarnApplication<Void> yarnApplication = applicationMasterBuilder.build("my-application");
 		
-		PrimitiveImmutableTypeMap specMap = yarnApplication.getApplicationSpecification();
+		PrimitiveImmutableTypeMap specMap = (PrimitiveImmutableTypeMap) yarnApplication.getApplicationSpecification();
 		assertEquals(1, specMap.getInt(YayaConstants.VIRTUAL_CORES));
 		assertEquals(0, specMap.getInt(YayaConstants.PRIORITY));
 		assertEquals(1, specMap.getInt(YayaConstants.MAX_ATTEMPTS));
 		assertEquals("default", specMap.getString(YayaConstants.QUEUE_NAME));
 		assertEquals(512, specMap.getInt(YayaConstants.MEMORY));
-		assertTrue(specMap.getBoolean(YayaConstants.LOCAL));
+		assertTrue(specMap.getBoolean(YayaConstants.YARN_EMULATOR));
 		assertEquals("my-application", specMap.getString(YayaConstants.APPLICATION_NAME));
 		
 		PrimitiveImmutableTypeMap containerSpecMap = (PrimitiveImmutableTypeMap) specMap.get(YayaConstants.CONTAINER_SPEC);
@@ -158,13 +158,13 @@ public class YarnAssemblyTests {
 				memory(1024).
 				build("my-application");
 		
-		PrimitiveImmutableTypeMap specMap = yarnApplication.getApplicationSpecification();
+		PrimitiveImmutableTypeMap specMap = (PrimitiveImmutableTypeMap) yarnApplication.getApplicationSpecification();
 		assertEquals(35, specMap.getInt(YayaConstants.VIRTUAL_CORES));
 		assertEquals(34, specMap.getInt(YayaConstants.PRIORITY));
 		assertEquals(12, specMap.getInt(YayaConstants.MAX_ATTEMPTS));
 		assertEquals("foo", specMap.getString(YayaConstants.QUEUE_NAME));
 		assertEquals(1024, specMap.getInt(YayaConstants.MEMORY));
-		assertFalse(specMap.getBoolean(YayaConstants.LOCAL));
+		assertFalse(specMap.getBoolean(YayaConstants.YARN_EMULATOR));
 		assertEquals("my-application", specMap.getString(YayaConstants.APPLICATION_NAME));
 		
 		PrimitiveImmutableTypeMap containerSpecMap = (PrimitiveImmutableTypeMap) specMap.get(YayaConstants.CONTAINER_SPEC);
@@ -181,13 +181,13 @@ public class YarnAssemblyTests {
 		ApplicationMasterSpecBuilder<ContainerDelegate[]> applicationMasterBuilder = YarnAssembly.forApplicationContainer(DslTestApplicationContainer.class).withApplicationMaster();
 		YarnApplication<ContainerDelegate[]> yarnApplication = applicationMasterBuilder.build("my-application");
 		
-		PrimitiveImmutableTypeMap specMap = yarnApplication.getApplicationSpecification();
+		PrimitiveImmutableTypeMap specMap = (PrimitiveImmutableTypeMap) yarnApplication.getApplicationSpecification();
 		assertEquals(1, specMap.getInt(YayaConstants.VIRTUAL_CORES));
 		assertEquals(0, specMap.getInt(YayaConstants.PRIORITY));
 		assertEquals(1, specMap.getInt(YayaConstants.MAX_ATTEMPTS));
 		assertEquals("default", specMap.getString(YayaConstants.QUEUE_NAME));
 		assertEquals(512, specMap.getInt(YayaConstants.MEMORY));
-		assertTrue(specMap.getBoolean(YayaConstants.LOCAL));
+		assertTrue(specMap.getBoolean(YayaConstants.YARN_EMULATOR));
 		assertEquals("my-application", specMap.getString(YayaConstants.APPLICATION_NAME));
 		
 		PrimitiveImmutableTypeMap containerSpecMap = (PrimitiveImmutableTypeMap) specMap.get(YayaConstants.CONTAINER_SPEC);
@@ -216,13 +216,13 @@ public class YarnAssemblyTests {
 				memory(1024).
 				build("my-application");
 		
-		PrimitiveImmutableTypeMap specMap = yarnApplication.getApplicationSpecification();
+		PrimitiveImmutableTypeMap specMap = (PrimitiveImmutableTypeMap) yarnApplication.getApplicationSpecification();
 		assertEquals(35, specMap.getInt(YayaConstants.VIRTUAL_CORES));
 		assertEquals(34, specMap.getInt(YayaConstants.PRIORITY));
 		assertEquals(12, specMap.getInt(YayaConstants.MAX_ATTEMPTS));
 		assertEquals("foo", specMap.getString(YayaConstants.QUEUE_NAME));
 		assertEquals(1024, specMap.getInt(YayaConstants.MEMORY));
-		assertFalse(specMap.getBoolean(YayaConstants.LOCAL));
+		assertFalse(specMap.getBoolean(YayaConstants.YARN_EMULATOR));
 		assertEquals("my-application", specMap.getString(YayaConstants.APPLICATION_NAME));
 		
 		PrimitiveImmutableTypeMap containerSpecMap = (PrimitiveImmutableTypeMap) specMap.get(YayaConstants.CONTAINER_SPEC);
@@ -252,13 +252,13 @@ public class YarnAssemblyTests {
 				memory(1024).
 				build("my-application");
 		
-		PrimitiveImmutableTypeMap specMap = yarnApplication.getApplicationSpecification();
+		PrimitiveImmutableTypeMap specMap = (PrimitiveImmutableTypeMap) yarnApplication.getApplicationSpecification();
 		assertEquals(35, specMap.getInt(YayaConstants.VIRTUAL_CORES));
 		assertEquals(34, specMap.getInt(YayaConstants.PRIORITY));
 		assertEquals(12, specMap.getInt(YayaConstants.MAX_ATTEMPTS));
 		assertEquals("foo", specMap.getString(YayaConstants.QUEUE_NAME));
 		assertEquals(1024, specMap.getInt(YayaConstants.MEMORY));
-		assertFalse(specMap.getBoolean(YayaConstants.LOCAL));
+		assertFalse(specMap.getBoolean(YayaConstants.YARN_EMULATOR));
 		assertEquals("my-application", specMap.getString(YayaConstants.APPLICATION_NAME));
 
 		PrimitiveImmutableTypeMap containerSpecMap = (PrimitiveImmutableTypeMap) specMap.get(YayaConstants.CONTAINER_SPEC);
@@ -288,13 +288,13 @@ public class YarnAssemblyTests {
 				memory(1024).
 				build("my-application");
 		
-		PrimitiveImmutableTypeMap specMap = yarnApplication.getApplicationSpecification();
+		PrimitiveImmutableTypeMap specMap = (PrimitiveImmutableTypeMap) yarnApplication.getApplicationSpecification();
 		assertEquals(35, specMap.getInt(YayaConstants.VIRTUAL_CORES));
 		assertEquals(34, specMap.getInt(YayaConstants.PRIORITY));
 		assertEquals(12, specMap.getInt(YayaConstants.MAX_ATTEMPTS));
 		assertEquals("foo", specMap.getString(YayaConstants.QUEUE_NAME));
 		assertEquals(1024, specMap.getInt(YayaConstants.MEMORY));
-		assertFalse(specMap.getBoolean(YayaConstants.LOCAL));
+		assertFalse(specMap.getBoolean(YayaConstants.YARN_EMULATOR));
 		assertEquals("my-application", specMap.getString(YayaConstants.APPLICATION_NAME));
 
 		PrimitiveImmutableTypeMap containerSpecMap = (PrimitiveImmutableTypeMap) specMap.get(YayaConstants.CONTAINER_SPEC);
@@ -306,7 +306,7 @@ public class YarnAssemblyTests {
 		assertEquals(DslTestApplicationContainer.class.getName(), containerSpecMap.getString(YayaConstants.CONTAINER_IMPL));
 	}
 	
-	public static class DslTestApplicationContainer implements ApplicationContainer {
+	public static class DslTestApplicationContainer implements ApplicationContainerProcessor {
 
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {

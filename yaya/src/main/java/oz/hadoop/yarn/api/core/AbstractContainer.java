@@ -31,10 +31,12 @@ import oz.hadoop.yarn.api.utils.PrintUtils;
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
 
 /**
+ * INTERNAL API
+ * 
  * @author Oleg Zhurakousky
  *
  */
-abstract class AbstractContainerLauncher {
+abstract class AbstractContainer {
 
 	protected final Log logger = LogFactory.getLog(this.getClass());
 
@@ -50,8 +52,8 @@ abstract class AbstractContainerLauncher {
 	public static void main(String[] args) throws Exception {
 		CollectionAssertUtils.assertSize(args, 2);
 		PrimitiveImmutableTypeMap containerArguments = buildArgumentsMap(args[0]);
-		Constructor<AbstractContainerLauncher> lCtr = ReflectionUtils.getInvocableConstructor(args[1], PrimitiveImmutableTypeMap.class);
-		AbstractContainerLauncher containerLauncher = lCtr.newInstance(containerArguments);
+		Constructor<AbstractContainer> lCtr = ReflectionUtils.getInvocableConstructor(args[1], PrimitiveImmutableTypeMap.class);
+		AbstractContainer containerLauncher = lCtr.newInstance(containerArguments);
 		containerLauncher.run();
 	}
 	
@@ -60,7 +62,7 @@ abstract class AbstractContainerLauncher {
 	 * @param applicationSpecification
 	 */
 	@SuppressWarnings("unchecked")
-	public AbstractContainerLauncher(PrimitiveImmutableTypeMap applicationSpecification){
+	public AbstractContainer(PrimitiveImmutableTypeMap applicationSpecification){
 		if (logger.isInfoEnabled()){
 			logger.info("Creating " + this.getClass().getName());
 		}
@@ -90,7 +92,7 @@ abstract class AbstractContainerLauncher {
 	 * @return
 	 */
 	@SuppressWarnings("unchecked")
-	private static PrimitiveImmutableTypeMap buildArgumentsMap(String base64EncodedJsonString){
+	static PrimitiveImmutableTypeMap buildArgumentsMap(String base64EncodedJsonString){
 		try {
 			JSONParser jsonParser = new JSONParser();
 			String decodedArguments = new String(Base64.decodeBase64(base64EncodedJsonString.getBytes()));

@@ -54,7 +54,7 @@ public class ClientServerTests {
 	public void testMoreThenExpectedClients() throws Exception {
 		int expectedClients = 2;
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ClientServerImpl clientServer = new ClientServerImpl(sa, expectedClients);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients);
 		InetSocketAddress address = clientServer.start();
 		
 		for (int i = 0; i < 40; i++) {
@@ -75,7 +75,7 @@ public class ClientServerTests {
 	public void testSimpleInterruction() throws Exception {
 		int expectedClients = 2;
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ClientServerImpl clientServer = new ClientServerImpl(sa, expectedClients);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients);
 		InetSocketAddress address = clientServer.start();
 		
 		for (int i = 0; i < expectedClients; i++) {
@@ -102,7 +102,7 @@ public class ClientServerTests {
 	@Test(timeout=5000)
 	public void testServerWithMixedMessages() throws Exception {
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ClientServerImpl clientServer = new ClientServerImpl(sa, 1);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, 1);
 		InetSocketAddress address = clientServer.start();
 		StringBuffer buffer = new StringBuffer();
 		String s = "Hello World";
@@ -142,7 +142,7 @@ public class ClientServerTests {
 		final int expectedClients = 4;
 		
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ClientServerImpl clientServer = new ClientServerImpl(sa, expectedClients);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients);
 		final InetSocketAddress actualServerAddress = clientServer.start();
 		@SuppressWarnings("unchecked")
 		Future<ApplicationContainerClientImpl>[] clients = new Future[expectedClients];
@@ -180,7 +180,7 @@ public class ClientServerTests {
 		final int expectedClients = 40;
 		
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ClientServerImpl clientServer = new ClientServerImpl(sa, expectedClients);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients);
 		InetSocketAddress actualServerAddress = clientServer.start();
 		for (int i = 0; i < expectedClients; i++) {
 			ApplicationContainerClientImpl containerClient = new ApplicationContainerClientImpl(actualServerAddress, new EchoMessageHandler());
@@ -235,6 +235,11 @@ public class ClientServerTests {
 		public ByteBuffer handle(ByteBuffer messageBuffer) {
 			return messageBuffer;
 		}
+
+		@Override
+		public void onDisconnect() {
+			
+		}
 		
 	}
 	
@@ -244,6 +249,12 @@ public class ClientServerTests {
 			ByteBuffer replyBuffer = ByteBuffer.allocate(6).putInt(messageBuffer.limit());
 			replyBuffer.flip();
 			return replyBuffer;
+		}
+
+		@Override
+		public void onDisconnect() {
+			// TODO Auto-generated method stub
+			
 		}
 	}
 }

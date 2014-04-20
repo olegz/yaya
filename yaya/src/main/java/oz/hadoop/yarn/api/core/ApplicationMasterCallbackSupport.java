@@ -16,6 +16,7 @@
 package oz.hadoop.yarn.api.core;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -33,7 +34,9 @@ import org.apache.hadoop.yarn.server.nodemanager.NodeManager;
 
 
 /**
- * A specification class meant to customize the behavior of {@link YarnApplicationMasterLauncher}.
+ * INTERNAL API
+ * 
+ * A specification class meant to customize the behavior of {@link ApplicationMasterLauncher}.
  * The two customization strategies are {@link AMRMClientAsync.CallbackHandler} and
  * {@link NMClientAsync.CallbackHandler}.
  *
@@ -52,8 +55,8 @@ class ApplicationMasterCallbackSupport {
 	 * @param yarnApplicationMaster
 	 * @return
 	 */
-	protected AMRMClientAsync.CallbackHandler buildResourceManagerCallbackHandler(ApplicationMasterLauncher yarnApplicationMaster) {
-		return new ResourceManagerCallbackHandler(yarnApplicationMaster);
+	protected AMRMClientAsync.CallbackHandler buildResourceManagerCallbackHandler(ApplicationContainerLauncherImpl applicationMasterDelegate) {
+		return new ResourceManagerCallbackHandler(applicationMasterDelegate);
 	}
 
 	/**
@@ -62,7 +65,8 @@ class ApplicationMasterCallbackSupport {
 	 * @param yarnApplicationMaster
 	 * @return
 	 */
-	protected NMClientAsync.CallbackHandler buildNodeManagerCallbackHandler(ApplicationMasterLauncher yarnApplicationMaster) {
+	protected NMClientAsync.CallbackHandler buildNodeManagerCallbackHandler(ApplicationContainerLauncherImpl applicationMasterDelegate) {
+		// noop for now
 		return new NodeManagerCallbaclHandler();
 	}
 
@@ -79,32 +83,32 @@ class ApplicationMasterCallbackSupport {
 
 		@Override
 		public void onContainerStopped(ContainerId containerId) {
-			logger.info("Received stopped container callback: " + containerId);
+			logger.info("Received onContainerStopped: " + containerId);
 		}
 
 		@Override
 		public void onContainerStatusReceived(ContainerId containerId, ContainerStatus containerStatus) {
-			logger.info("Received container status callback: " + containerStatus);
+			logger.info("Received onContainerStatusReceived: " + containerStatus);
 		}
 
 		@Override
 		public void onContainerStarted(ContainerId containerId, Map<String, ByteBuffer> allServiceResponse) {
-			logger.info("Received container started callback: " + containerId);
+			logger.info("Received onContainerStarted: " + containerId);
 		}
 
 		@Override
 		public void onStartContainerError(ContainerId containerId, Throwable t) {
-			logger.error("Received container start callback: " + containerId, t);
+			logger.error("Received onStartContainerError: " + containerId, t);
 		}
 
 		@Override
 		public void onGetContainerStatusError(ContainerId containerId, Throwable t) {
-			logger.error("Received container status callback: " + containerId, t);
+			logger.error("Received onGetContainerStatusError: " + containerId, t);
 		}
 
 		@Override
 		public void onStopContainerError(ContainerId containerId, Throwable t) {
-			logger.info("Received stop container callback: " + containerId);
+			logger.info("Received onStopContainerError: " + containerId);
 		}
 	}
 
@@ -120,10 +124,12 @@ class ApplicationMasterCallbackSupport {
 
 		private final AtomicInteger completedContainersCounter = new AtomicInteger();
 
-		private final ApplicationMasterLauncher applicationMaster;
+		private final ApplicationContainerLauncherImpl applicationMasterDelegate;
+		
+		private final List<Container> allocatedContainers = new ArrayList<>();
 
-		public ResourceManagerCallbackHandler(ApplicationMasterLauncher applicationMaster) {
-			this.applicationMaster = applicationMaster;
+		public ResourceManagerCallbackHandler(ApplicationContainerLauncherImpl applicationMasterDelegate) {
+			this.applicationMasterDelegate = applicationMasterDelegate;
 		}
 
 		@Override
@@ -131,7 +137,7 @@ class ApplicationMasterCallbackSupport {
 			logger.info("Received completed contaners callback: " + completedContainers);
 			 for (ContainerStatus containerStatus : completedContainers) {
 				 logger.info("ContainerStatus: " + containerStatus);
-				 this.applicationMaster.signalContainerCompletion(containerStatus);
+				 this.applicationMasterDelegate.signalContainerCompletion(containerStatus);
 				 this.completedContainersCounter.incrementAndGet();
 			 }
 		}
@@ -141,15 +147,17 @@ class ApplicationMasterCallbackSupport {
 		 */
 		@Override
 		public void onContainersAllocated(List<Container> allocatedContainers) {
+			this.allocatedContainers.addAll(allocatedContainers);
 			logger.info("Received allocated containers callback: " + allocatedContainers);
 			for (final Container allocatedContainer : allocatedContainers) {
-				this.applicationMaster.launchContainer(allocatedContainer);
+				this.applicationMasterDelegate.launchContainer(allocatedContainer);
 			}
 		}
 
 		@Override
 		public void onShutdownRequest() {
 			logger.info("Received shut down callback");
+			this.applicationMasterDelegate.initiateShutdown(this.allocatedContainers);
 		}
 
 		@Override
@@ -165,6 +173,7 @@ class ApplicationMasterCallbackSupport {
 		@Override
 		public void onError(Throwable e) {
 			logger.error("Received error", e);
+			this.applicationMasterDelegate.initiateShutdown(this.allocatedContainers);
 		}
 	}
 

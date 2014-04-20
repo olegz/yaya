@@ -18,7 +18,7 @@ package yarn.demo;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
 
-import oz.hadoop.yarn.api.ApplicationContainer;
+import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
 import oz.hadoop.yarn.api.net.ContainerDelegate;
@@ -44,7 +44,7 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 	 */
 	public static void main(String[] args) throws Exception {
 		YarnApplication<ContainerDelegate[]> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
-				containerCount(2).
+				containerCount(4).
 				memory(256).withApplicationMaster().
 					maxAttempts(2).
 					memory(512).
@@ -66,7 +66,7 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 	/**
 	 * 
 	 */
-	public static class DemoEchoContainer implements ApplicationContainer {
+	public static class DemoEchoContainer implements ApplicationContainerProcessor {
 
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {

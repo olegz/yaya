@@ -45,7 +45,7 @@ public interface YayaConstants {
 	
 	String CLIENT_PORT = "CL_PORT";
 	
-	String LOCAL = "local";
+	String YARN_EMULATOR = "true";
 	
 	String CONTAINER_SPEC = "CONTAINER_SPEC";
 	

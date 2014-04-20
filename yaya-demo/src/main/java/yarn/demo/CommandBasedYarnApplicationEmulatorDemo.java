@@ -34,15 +34,11 @@ public class CommandBasedYarnApplicationEmulatorDemo {
 	 * Just hit run and see your output in the console.
 	 */
 	public static void main(String[] args) throws Exception {
-		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 yahoo.com").
-								containerCount(2).
-								memory(512).withApplicationMaster().
-									maxAttempts(2).
-									priority(2).
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 google.com").
+								containerCount(4).
+								withApplicationMaster().
 									build("CommandBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
-		yarnApplication.shutDown();
 	}
-	
 }
