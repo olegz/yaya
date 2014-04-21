@@ -119,7 +119,10 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		
 		this.initApplicationContainerServer(applicationContainerCount);
 		
-		this.doLaunch(applicationContainerCount);
+		ApplicationId launchedApplication = this.doLaunch(applicationContainerCount);
+		if (logger.isInfoEnabled()){
+			logger.info("Launched application: " + launchedApplication);
+		}
 		
 		if (logger.isDebugEnabled()){
 			logger.debug("Establishing connection with all " + applicationContainerCount + " Application Containers");

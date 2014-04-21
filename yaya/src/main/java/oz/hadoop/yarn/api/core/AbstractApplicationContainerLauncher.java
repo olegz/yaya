@@ -64,7 +64,7 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 		} 
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			logger.error("APPLICATION MASTER's thread was interrupted", e);
+			logger.warn("APPLICATION MASTER's launch thread was interrupted");
 		}
 		catch (Exception e){
 			throw new IllegalStateException("Failed to launch Application Container", e);

@@ -82,9 +82,6 @@ class CommandProcessLauncher extends ProcessLauncher {
 		catch (Exception e) {
 			logger.error("Command '" + this.command + "' failed.", e);
 		}
-		finally {
-			this.finish();
-		}
 	}
 	
 	/**
@@ -92,8 +89,8 @@ class CommandProcessLauncher extends ProcessLauncher {
 	 */
 	private void streamFinished(){
 		int sFinished = this.streamsFinished.incrementAndGet();
+		this.containerLivelinesBarrier.countDown();
 		if (sFinished == 2){
-			this.finish();
 			if (logger.isDebugEnabled()){
 				if (logger.isDebugEnabled()){
 					logger.debug("Process has completed");

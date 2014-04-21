@@ -18,6 +18,7 @@ package oz.hadoop.yarn.api.core;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -62,7 +63,19 @@ abstract class ProcessLauncher {
 			this.containerLivelinesBarrier.countDown();
 		}
 		logger.info("Shutting down executor");
-		this.executor.shutdownNow();
+		this.executor.shutdown();
+		if (!this.executor.isTerminated()){
+			try {
+				if (!this.executor.awaitTermination(5, TimeUnit.SECONDS)){
+					logger.warn("Killing executor with interrupt");
+					this.executor.shutdownNow();
+				}
+			} 
+			catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				logger.warn("Interrupted while waiting for executor to shut down");
+			}
+		}
 	}
 	
 	/**

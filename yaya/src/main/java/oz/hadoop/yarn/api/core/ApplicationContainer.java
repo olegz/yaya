@@ -95,12 +95,7 @@ class ApplicationContainer extends AbstractContainer {
 				logger.info("Force-terminated Application Container based on the request from the client");
 			}
 		}
-//		try {
-//			Thread.sleep(1000);
-//		} catch (Exception e) {
-//			// TODO: handle exception
-//		}
-//		client.stop();
+
 		client.awaitShutdown();
 		logger.info("ApplicationContainerClient has been stopped");
 		

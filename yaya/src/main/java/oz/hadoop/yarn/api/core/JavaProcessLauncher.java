@@ -82,8 +82,5 @@ class JavaProcessLauncher extends ProcessLauncher {
 		catch (Exception e) {
 			logger.error("Java process failed.", e);
 		}
-		finally {
-			this.finish();
-		}
 	}
 }

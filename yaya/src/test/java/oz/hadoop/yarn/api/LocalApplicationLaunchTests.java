@@ -68,8 +68,8 @@ public class LocalApplicationLaunchTests {
 		assertFalse(yarnApplication.isRunning());
 	}
 	
-	@Test(timeout=2000)
-	public void validateJavaContainerLaunchWithArgumentsImediateShutdown() throws Exception {
+	@Test//(timeout=2000)
+	public void validateJavaContainerLaunchImediateShutdown() throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class, ByteBuffer.wrap("Hello".getBytes())).
 												containerCount(2).
 												memory(512).withApplicationMaster().
@@ -84,7 +84,7 @@ public class LocalApplicationLaunchTests {
 	}
 	
 	@Test(timeout=2000)
-	public void validateJavaContainerLaunchWithArgumentsLettingFinish() throws Exception {
+	public void validateJavaContainerLaunchSelfShutdown() throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class, ByteBuffer.wrap("Hello".getBytes())).
 												containerCount(2).
 												memory(512).withApplicationMaster().
@@ -95,12 +95,13 @@ public class LocalApplicationLaunchTests {
 		yarnApplication.launch();
 		assertTrue(yarnApplication.isRunning());
 		Thread.sleep(500);
-		// note its going to assert true to not running without explicit shutdown 
+		assertEquals(0, yarnApplication.liveContainers());
+		// note, its going to assert true to not running without explicit shutdown 
 		assertFalse(yarnApplication.isRunning());
 	}
 	
 	@Test(timeout=5000)
-	public void validateJavaContainerLaunchWithArgumentsAndForcedShutdown() throws Exception {
+	public void validateInfiniteJavaContainerLaunchForcedShutdown() throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(InfiniteContainer.class, ByteBuffer.wrap("Hello".getBytes())).
 												containerCount(2).
 												memory(512).withApplicationMaster().
@@ -116,7 +117,7 @@ public class LocalApplicationLaunchTests {
 	}
 	
 	@Test(timeout=5000)
-	public void validateJavaContainerLaunchWithArgumentsAndVariableProcessTimeWithForcedShutdown() throws Exception {
+	public void validateJavaContainerLaunchAndVariableProcessTimeWithForcedShutdown() throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(VariableProcessingTime.class, ByteBuffer.wrap("Hello".getBytes())).
 												containerCount(6).
 												memory(512).withApplicationMaster().
@@ -136,7 +137,7 @@ public class LocalApplicationLaunchTests {
 	}
 	
 	@Test(timeout=3000)
-	public void validateContainerLaunchWithCommand() throws Exception {
+	public void validateContainerLaunchWithCommandSelfShutdown() throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("date").
 												containerCount(2).
 												memory(512).withApplicationMaster().
@@ -150,11 +151,10 @@ public class LocalApplicationLaunchTests {
 		assertEquals(2, yarnApplication.liveContainers());
 		Thread.sleep(1000);
 		assertFalse(yarnApplication.isRunning());
-		yarnApplication.shutDown();
 	}
 	
 	@Test(timeout=5000)
-	public void validateContainerLaunchWithInfiniteCommand() throws Exception {
+	public void validateContainerLaunchWithInfiniteCommandForcedShutdown() throws Exception {
 		ClassPathResource resource = new ClassPathResource("infinite", this.getClass());
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(resource.getFile().getAbsolutePath()).
 												containerCount(3).
@@ -233,7 +233,13 @@ public class LocalApplicationLaunchTests {
 			try {
 				System.out.println("Will loop for " + loopCount);
 				for (int i = 0; i < loopCount; i++) {
-					Thread.sleep(500);
+					if (loopCount == 30){
+						System.out.println("LOOPING: " + i);
+						Thread.sleep(5000);
+					}
+					else {
+						Thread.sleep(500);
+					}
 				}
 			} catch (Exception e) {
 				// ignore

@@ -34,13 +34,14 @@ import oz.hadoop.yarn.api.utils.ReflectionUtils;
  */
 class ApplicationMasterLauncherEmulatorImpl<T> extends AbstractApplicationMasterLauncher<T> {
 
+	private final ApplicationId applicationId;
 	/**
 	 * 
 	 * @param applicationSpecification
 	 */
-	ApplicationMasterLauncherEmulatorImpl(
-			Map<String, Object> applicationSpecification) {
+	ApplicationMasterLauncherEmulatorImpl(Map<String, Object> applicationSpecification) {
 		super(applicationSpecification);
+		this.applicationId = new EmulatedApplicationId();
 	}
 
 	/**
@@ -68,43 +69,47 @@ class ApplicationMasterLauncherEmulatorImpl<T> extends AbstractApplicationMaster
 				}
 			}
 		});
-		return new EmulatedApplicationId();
+		return this.applicationId;
 	}
 	
 	/**
 	 * 
 	 */
 	ApplicationId doShutDown() {
-		return null;
+		return this.applicationId;
 	}
 	
 	/**
 	 * 
 	 */
 	private class EmulatedApplicationId extends ApplicationId {
+		private final long cluterTimeStamp;
+		
+		private final String applicationId;
+		
+		public EmulatedApplicationId(){
+			this.cluterTimeStamp = System.currentTimeMillis();
+			this.applicationId = "application_" + this.cluterTimeStamp + "_0001";
+		}
 
 		@Override
 		public int getId() {
-			// TODO Auto-generated method stub
-			return 0;
+			return 1;
 		}
 
 		@Override
 		protected void setId(int id) {
-			// TODO Auto-generated method stub
-			
+			throw new UnsupportedOperationException("Setting id is not supported for EmulatedApplicationId");
 		}
 
 		@Override
 		public long getClusterTimestamp() {
-			// TODO Auto-generated method stub
-			return 0;
+			return this.cluterTimeStamp;
 		}
 
 		@Override
 		protected void setClusterTimestamp(long clusterTimestamp) {
-			// TODO Auto-generated method stub
-			
+			throw new UnsupportedOperationException("Setting cluterTimeStamp is not supported for EmulatedApplicationId");
 		}
 
 		@Override
@@ -113,5 +118,9 @@ class ApplicationMasterLauncherEmulatorImpl<T> extends AbstractApplicationMaster
 			
 		}
 		
+		@Override
+		public String toString(){
+			return this.applicationId;
+		}
 	}
 }
