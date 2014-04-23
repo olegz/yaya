@@ -332,8 +332,8 @@ abstract class AbstractSocketHandler implements SocketHandler {
 				}
 				AbstractSocketHandler.this.readingBuffer.flip();
 				if (AbstractSocketHandler.this.readingBuffer.limit() > 0){
-					if (logger.isDebugEnabled()){
-						logger.debug(AbstractSocketHandler.this.getClass().getName() + " - Received data message with " + readingBuffer.limit());// + " bytes from: " + this.getAddress());
+					if (logger.isTraceEnabled()){
+						logger.trace(AbstractSocketHandler.this.getClass().getName() + " - Received data message with " + readingBuffer.limit() + " bytes");
 			    	}
 					messageBuffer = ByteBufferUtils.merge(messageBuffer, AbstractSocketHandler.this.readingBuffer);
 				}

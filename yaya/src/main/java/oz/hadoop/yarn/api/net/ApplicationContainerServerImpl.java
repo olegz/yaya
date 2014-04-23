@@ -266,7 +266,7 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	void read(SelectionKey selectionKey, ByteBuffer replyBuffer) throws IOException {
 		ReplyPostProcessor replyCallbackHandler = ((ReplyPostProcessor)this.replyCallbackMap.remove(selectionKey));
 		if (logger.isDebugEnabled()){
-			logger.debug("Reply received from " + replyCallbackHandler);
+			logger.debug("Reply received from " + ((SocketChannel)selectionKey.channel()).getRemoteAddress());
 		}
 		if (this.replyListener != null){
 			this.replyListener.onReply(replyBuffer);

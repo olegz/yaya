@@ -16,6 +16,7 @@
 package yarn.demo;
 
 import java.nio.ByteBuffer;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -47,7 +48,7 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
-				containerCount(4).
+				containerCount(8).
 				withApplicationMaster().
 					maxAttempts(2).
 					build("InteractableYarnApplicationContainersEmulatorDemo");
@@ -78,6 +79,7 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 		 * not accepting any more. So you may see a "Rejecting submission..." message in the logs.
 		 */
 		yarnApplication.shutDown();
+		System.out.println("Processes completed since launch: " + dataProcessor.completedSinceStart());
 		executor.shutdown();
 	}
 	
@@ -88,6 +90,12 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
+			try {
+				Thread.sleep(new Random().nextInt(2000));
+				System.out.println("Echoing. . .");
+			} catch (Exception e) {
+				// ignore
+			}
 			return inputMessage;
 		}
 	}

@@ -51,11 +51,20 @@ public class InteractableYarnApplicationContainersClusterDemo {
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
-				containerCount(4).
+				containerCount(8).
 				withApplicationMaster(new YarnConfiguration()).
 					maxAttempts(2).
-					build("InteractableYarnApplicationContainersEmulatorDemo");
+					build("InteractableYarnApplicationContainersClusterDemo");
 
+		/*
+		 * DataProcessor essentially is a proxy over all Application Containers running in YARN.
+		 * It is aware of which Application Containers are available and will 
+		 * delegate its process(..) invocation to the first available Application Container.
+		 * So essentially DataProcessor is a gateway to the YARN Distributed Computing Grid.
+		 * 
+		 * Additionally you can register oz.hadoop.yarn.api.DataProcessorReplyListener with 
+		 * DataProcessor if interested in receiving a reply from the distributed process.
+		 */
 		final DataProcessor dataProcessor = yarnApplication.launch();
 		executor.execute(new Runnable() {
 			@Override
@@ -73,6 +82,7 @@ public class InteractableYarnApplicationContainersClusterDemo {
 		 * not accepting any more. So you may see a "Rejecting submission..." message in the logs.
 		 */
 		yarnApplication.shutDown();
+		System.out.println("Processes completed since launch: " + dataProcessor.completedSinceStart());
 		executor.shutdown();
 	}
 	
@@ -83,7 +93,8 @@ public class InteractableYarnApplicationContainersClusterDemo {
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
 			try {
-				Thread.sleep(new Random().nextInt(10000));
+				Thread.sleep(new Random().nextInt(3000));
+				System.out.println("Echoing. . .");
 			} catch (Exception e) {
 				// TODO: handle exception
 			}
