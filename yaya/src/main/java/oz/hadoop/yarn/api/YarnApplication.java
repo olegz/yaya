@@ -38,33 +38,35 @@ public interface YarnApplication<T> {
 	 * Once such connectivity is established this method will return.
 	 * Its return does not signify the completion of the application. In fact 
 	 * with long-running Application Containers, the application will never finish
-	 * until {@link #shutDown()} is called.
+	 * until {@link #shutDown()} or {@link #terminate()} is called.
 	 * However, regardless whether this application is a long-running or finite, you should 
 	 * check on its status via {@link #isRunning()} method. There is also {@link #liveContainers()} method
 	 * which can assist in obtaining more knowledge about your application status.
 	 * <br>
 	 * If this application is finite it will exit on its own upon completion and if it happens
-	 * then the call to {@link #isRunning()} will return 'false' even without invoking {@link #shutDown()};
-	 * Invoking {@link #shutDown()} will shut down this application even if its running. 
+	 * then the call to {@link #isRunning()} will return 'false' even without invoking {@link #shutDown()}
+	 * or {@link #terminate()}.
+	 * Invoking {@link #shutDown()} will shut down this application gracefully allowing task currently executing 
+	 * by Application Containers to finish while not accepting any new tasks. Invoking {@link #terminate()}
+	 * will essentially kill the application. 
 	 * 
 	 * @return
 	 * 	  T which could be either 'void' for finite Application Containers or 
-	 *    an array of {@link ContainerDelegateImpl}s for long-running Application Containers.
+	 *    {@link DataProcessor}s for long-running Application Containers.
 	 * 	
 	 */
 	T launch();
 	
 	/**
-	 * Will shut down this application even if its running, so its important to be aware of 
-	 * the {@link #isRunning()} method to check on the application status. However, finite 
-	 * application will exit on its own upon completion and if it happens
-	 * then the call to {@link #isRunning()} will return 'false' even before invoking this method.
-	 * <br>
-	 * Call to this method when application is no longer in the running state has no effect.
+	 * Will attempt shut down this application gracefully, allowing task currently executing 
+	 * by Application Containers to finish while not accepting any new tasks. However, finite 
+	 * application will exit on its own upon completion of all tasks. In this case subsequent calls 
+	 * to this method will have no effect.
 	 */
 	void shutDown();
 	
 	/**
+	 * Will terminate (kill) this application.
 	 */
 	void terminate();
 	

@@ -18,19 +18,57 @@ package oz.hadoop.yarn.api;
 import java.nio.ByteBuffer;
 
 /**
+ * Strategy to represent distributed Application Containers of YARN application.
+ * It is created and returned by calling {@link YarnApplication#launch()} method
+ * only in he cases of long-running reusable YARN applications created by {@link YarnAssembly}.
+ * 
  * @author Oleg Zhurakousky
  *
  */
 public interface DataProcessor {
 
+	/**
+	 * Allows you to submit data as {@link ByteBuffer} to a first available 
+	 * Application Container.
+	 * 
+	 * @param data
+	 * 		data to process
+	 */
 	void process(ByteBuffer data);
 	
+	/**
+	 * Allows you to submit data as {@link ByteBuffer} to a first available 
+	 * Application Container that matches the regex IP filter 
+	 * 
+	 * @param data
+	 * 		data to process
+	 * @param ipRegexFilter
+	 * 		regular expression for IP address filtering (e.g., "192\.168\.19\.(1[0-5])")
+	 */
+	// TODO, may be instead of a void return the host name of the AC
 	void process(ByteBuffer data, String ipRegexFilter);
 	
+	/**
+	 * The amount of successful calls to {@link #process(ByteBuffer)} or
+	 * {@link #process(ByteBuffer, String)} methods since the launch of the application.
+	 * 
+	 * @return
+	 */
 	long completedSinceStart();
 	
+	/**
+	 * Returns the amount of distributed Application Containers this strategy represents.
+	 * 
+	 * @return
+	 */
 	int containers();
 	
+	/**
+	 * Allow for the registration of the {@link DataProcessorReplyListener} for the cases where
+	 * you need to deal with replies produced by the {@link ApplicationContainerProcessor}s or commands executed 
+	 * by Application Containers.
+	 *
+	 * @param replyListener
+	 */
 	void registerReplyListener(DataProcessorReplyListener replyListener);
-	
 }
