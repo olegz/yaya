@@ -79,8 +79,9 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 		Thread.sleep(2000); //let it run for a bit and then shutdown
 		/*
 		 * NOTE: This is a graceful shutdown, letting 
-		 * currently running Application Containers to finish, while
-		 * not accepting any more. So you may see a "Rejecting submission..." message in the logs.
+		 * currently running Application Containers to finish its tasks running as 
+		 * implemented ApplicationContainerProcessors, while not accepting any more tasks 
+		 * (rejecting process(..) calls). So you may see a "Rejecting submission..." message in the logs.
 		 */
 		yarnApplication.shutDown();
 		System.out.println("Processes completed since launch: " + dataProcessor.completedSinceStart());
