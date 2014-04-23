@@ -33,6 +33,8 @@ import oz.hadoop.yarn.api.utils.ReflectionUtils;
 /**
  * INTERNAL API
  * 
+ * Base class for implementing container launchers.
+ * 
  * @author Oleg Zhurakousky
  *
  */
@@ -54,7 +56,7 @@ abstract class AbstractContainer {
 		PrimitiveImmutableTypeMap containerArguments = buildArgumentsMap(args[0]);
 		Constructor<AbstractContainer> lCtr = ReflectionUtils.getInvocableConstructor(args[1], PrimitiveImmutableTypeMap.class);
 		AbstractContainer containerLauncher = lCtr.newInstance(containerArguments);
-		containerLauncher.run();
+		containerLauncher.launch();
 	}
 	
 	/**
@@ -81,9 +83,9 @@ abstract class AbstractContainer {
 	}
 	
 	/**
-	 * 
+	 * Will launch containers defined by concrete implementation of this class
 	 */
-	abstract void run();
+	abstract void launch();
 
 	/**
 	 * Converts Base64 encoded JSON String of container arguments to {@link PrimitiveImmutableTypeMap}

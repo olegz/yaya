@@ -29,6 +29,8 @@ import oz.hadoop.yarn.api.utils.ReflectionUtils;
 /**
  * INTERNAL API
  * 
+ * Launcher for launching command-based tasks
+ * 
  * @author Oleg Zhurakousky
  *
  */

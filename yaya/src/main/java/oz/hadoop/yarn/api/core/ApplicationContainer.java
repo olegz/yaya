@@ -52,7 +52,7 @@ class ApplicationContainer extends AbstractContainer {
 	 * 
 	 */
 	@Override
-	void run() {
+	void launch() {
 		logger.info("###### Starting Application Container ######");
 		
 		final String appContainerImplClass = this.containerSpec.getString(YayaConstants.CONTAINER_IMPL);

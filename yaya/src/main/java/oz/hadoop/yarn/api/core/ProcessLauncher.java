@@ -26,6 +26,8 @@ import org.apache.commons.logging.LogFactory;
 /**
  * INTERNAL API
  * 
+ * Base class for implementing launchers. See {@link CommandProcessLauncher} and {@link JavaProcessLauncher}
+ * 
  * @author Oleg Zhurakousky
  *
  */

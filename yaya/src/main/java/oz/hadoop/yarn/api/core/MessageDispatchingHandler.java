@@ -29,8 +29,9 @@ import oz.hadoop.yarn.api.net.ApplicationContainerServer;
 /**
  * INTERNAL API
  * 
- * Is bound to {@link ApplicationContainerClient} and will dispatch messages coming from 
- * {@link ApplicationContainerServer} to the provided {@link ApplicationContainerProcessor}.
+ * A dispatcher-type class which is bound to {@link ApplicationContainerClient} with the 
+ * purpose of dispatching messages coming from {@link ApplicationContainerServer} to the 
+ * provided {@link ApplicationContainerProcessor}.
  * 
  * @author Oleg Zhurakousky
  *

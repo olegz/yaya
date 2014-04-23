@@ -22,8 +22,8 @@ import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 /**
  * INTERNAL API
  * 
- * Implementation of YAYA generic YARN Application Master only responsibility 
- * is to deploy YARN APplication Containers defined in application specification.   
+ * Implementation of the generic YARN Application Master whose responsibility 
+ * is to deploy YARN Application Containers defined using application specification.   
  * 
  * @author Oleg Zhurakousky
  *
@@ -39,7 +39,7 @@ class ApplicationMaster extends AbstractContainer {
 	 * It is typically invoked from its supper class's main(..) method where {@link PrimitiveImmutableTypeMap}
 	 * of application specification is constructed from the JSON String.
 	 * 
-	 * @param containerArguments
+	 * @param applicationSpecification
 	 */
 	public ApplicationMaster(PrimitiveImmutableTypeMap applicationSpecification) {
 		super(applicationSpecification);
@@ -53,10 +53,10 @@ class ApplicationMaster extends AbstractContainer {
 	}
 
 	/**
-	 * 
+	 * Will launch Application Containers
 	 */
 	@Override
-	void run() {
+	void launch() {
 		logger.info("###### Starting APPLICATION MASTER ######");
 		
 		// this method will block until containers are finished (on its own or terminated)

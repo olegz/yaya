@@ -27,6 +27,8 @@ import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 /**
  * INTERNAL API
  * 
+ * Launcher for launching java-based tasks
+ * 
  * @author Oleg Zhurakousky
  *
  */

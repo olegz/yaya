@@ -28,10 +28,10 @@ import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 /**
  * INTERNAL API
  * 
- * Implementation of {@link YarnApplication} which will be backing proxy return by the 
- * {@link YarnAssembly}.
+ * Implementation of {@link YarnApplication} which will be backing proxy returned by the 
+ * {@link YarnAssembly}'s build() method.
  * Its main responsibility is to construct the appropriate instance of {@link ApplicationMasterLauncher}
- * (Emulated or Real), then all life-cycle calls will be delegated to this instance
+ * (Emulated or Real), then all life-cycle calls will be delegated to this instance.
  * 
  * @author Oleg Zhurakousky
  *

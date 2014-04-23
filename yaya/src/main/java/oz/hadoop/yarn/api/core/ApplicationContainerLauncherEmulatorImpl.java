@@ -56,7 +56,7 @@ class ApplicationContainerLauncherEmulatorImpl extends AbstractApplicationContai
 				public void run() {
 					try {
 						ApplicationContainer launcher = new ApplicationContainer(ApplicationContainerLauncherEmulatorImpl.this.applicationSpecification);
-						launcher.run();
+						launcher.launch();
 						if (logger.isInfoEnabled()){
 							logger.info("Container finished");
 						}
