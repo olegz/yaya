@@ -1,62 +1,67 @@
+/*
+ * Copyright 2014 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package oz.hadoop.yarn.api;
 
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.util.Enumeration;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.junit.Test;
 
 import oz.hadoop.yarn.api.utils.PrintUtils;
 
+/**
+ * 
+ * @author Oleg Zhurakousky
+ *
+ */
 public class PrettyMapTest {
 
 	/**
-	 * @param args
+	 * Not much to assert here. Mainly spot-check and code coverage.
 	 */
-	public static void main(String[] args) throws Exception{
-System.out.println(InetAddress.getLocalHost());
-//		System.out.println(PrintUtils.prettyMap(System.getenv()));
-//		System.out.println(PrintUtils.prettyMap(System.getProperties()));
+	@Test
+	public void spotCheckPrettyMap() throws Exception{
+		System.out.println(PrintUtils.prettyMap(System.getenv()));
+		System.out.println(PrintUtils.prettyMap(System.getProperties()));
 		
-//		InetAddress[] iAddress = InetAddress.getAllByName(InetAddress.getLocalHost().getHostName());
-//        for (InetAddress inetAddress : iAddress) {
-//        	System.out.println(inetAddress.getHostAddress());
-//		}
-        
-//		Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-//		while (interfaces.hasMoreElements()) {
-//	        NetworkInterface nic = interfaces.nextElement();
-//	        Enumeration<InetAddress> addresses = nic.getInetAddresses();
-//	        while (addresses.hasMoreElements()) {
-//	            InetAddress address = addresses.nextElement();
-//	            if (!address.isLoopbackAddress()) {
-//	                System.out.println(address.getHostName());
-//	            }
-//	        }
-//	    }
-//		Map<String, Object> map = new HashMap<String, Object>();
-//		map.put("fname", "Oleg");
-//		map.put("lname", "Zhurakousky");
-//		map.put("nicknames", Arrays.asList(new String[]{"dodik", "zhorka"}));
-//		
-//		Map<String, Object> map2 = new HashMap<String, Object>();
-//		map2.put("fname", "Seva");
-//		map2.put("lname", "Tysh");
-//		
-//		map.put("children", map2);
-//		
-//		
-//		Map<String, Object> map3 = new HashMap<String, Object>();
-//		map3.put("schools", Arrays.asList(new String[]{"Ft. Washington Elementary", "Gov Miflin"}));
-//		map3.put("foo", "bar");
-//		
-//		Map<String, Object> map4 = new HashMap<String, Object>();
-//		map4.put("abc", "xyz");
-//		
-//		map3.put("blahblah", Arrays.asList(new Object[]{"Blah", map4}));
-//		
-//		map2.put("schools", map3);
-//		
-//		String prettyMap = PrintUtils.prettyMap(map);
-//		System.out.println(prettyMap);
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("fname", "Oleg");
+		map.put("lname", "Zhurakousky");
+		map.put("nicknames", Arrays.asList(new String[]{"abc", "xyz"}));
+		
+		Map<String, Object> map2 = new HashMap<String, Object>();
+		map2.put("fname", "Seva");
+		map2.put("lname", "Somename");
+		
+		map.put("children", map2);
+		
+		Map<String, Object> map3 = new HashMap<String, Object>();
+		map3.put("schools", Arrays.asList(new String[]{"Ft. Washington Elementary", "Gov Miflin"}));
+		map3.put("foo", "bar");
+		
+		Map<String, Object> map4 = new HashMap<String, Object>();
+		map4.put("abc", "xyz");
+		
+		map3.put("blahblah", Arrays.asList(new Object[]{"Blah", map4}));
+		
+		map2.put("schools", map3);
+		
+		String prettyMap = PrintUtils.prettyMap(map);
+		System.out.println(prettyMap);
 	}
 
 }

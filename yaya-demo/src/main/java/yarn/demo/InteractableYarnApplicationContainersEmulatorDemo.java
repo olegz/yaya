@@ -16,12 +16,13 @@
 package yarn.demo;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.Future;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import oz.hadoop.yarn.api.ApplicationContainerProcessor;
+import oz.hadoop.yarn.api.DataProcessor;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
-import oz.hadoop.yarn.api.net.ContainerDelegate;
 
 /**
  * This demo showcases long-running reusable containers you can interact with
@@ -43,24 +44,32 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 	 * Just run.
 	 */
 	public static void main(String[] args) throws Exception {
-		YarnApplication<ContainerDelegate[]> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		
+		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
 				containerCount(4).
-				memory(256).withApplicationMaster().
+				withApplicationMaster().
 					maxAttempts(2).
-					memory(512).
 					build("InteractableYarnApplicationContainersEmulatorDemo");
 
-		ContainerDelegate[] containerDelegates = yarnApplication.launch();
-		for (int i = 0; i < 5; i++) {
-			for (ContainerDelegate containerDelegate : containerDelegates) {
-				Future<ByteBuffer> reply = containerDelegate.exchange(ByteBuffer.wrap(("Hello Yarn!-" + i).getBytes()));
-				ByteBuffer r = reply.get();
-				byte[] replyBytes = new byte[r.limit()];
-				r.get(replyBytes);
-				System.out.println("Reply: " + new String(replyBytes));
+		final DataProcessor dataProcessor = yarnApplication.launch();
+		executor.execute(new Runnable() {
+			@Override
+			public void run() {
+				for (int i = 0; i < 30; i++) {
+					dataProcessor.process(ByteBuffer.wrap(("" + i).getBytes()));
+				}
 			}
-		}
+		});
+		
+		Thread.sleep(2000); //let it run for a bit and then shutdown
+		/*
+		 * NOTE: This is a graceful shutdown, letting 
+		 * currently running Application Containers to finish, while
+		 * not accepting any more. So you may see a "Rejecting submission..." message in the logs.
+		 */
 		yarnApplication.shutDown();
+		executor.shutdown();
 	}
 	
 	/**

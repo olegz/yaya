@@ -17,8 +17,6 @@ package oz.hadoop.yarn.api;
 
 import java.util.Map;
 
-import oz.hadoop.yarn.api.net.ContainerDelegate;
-
 
 /**
  * Strategy representing an assembled YARN Application.
@@ -51,7 +49,7 @@ public interface YarnApplication<T> {
 	 * 
 	 * @return
 	 * 	  T which could be either 'void' for finite Application Containers or 
-	 *    an array of {@link ContainerDelegate}s for long-running Application Containers.
+	 *    an array of {@link ContainerDelegateImpl}s for long-running Application Containers.
 	 * 	
 	 */
 	T launch();
@@ -65,6 +63,10 @@ public interface YarnApplication<T> {
 	 * Call to this method when application is no longer in the running state has no effect.
 	 */
 	void shutDown();
+	
+	/**
+	 */
+	void terminate();
 	
 	
 	/**

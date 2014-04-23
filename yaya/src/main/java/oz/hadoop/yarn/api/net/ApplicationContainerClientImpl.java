@@ -52,7 +52,7 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 	 * @param address
 	 */
 	public ApplicationContainerClientImpl(InetSocketAddress address, ApplicationContainerMessageHandler messageHandler){
-		super(address, false, null);
+		super(address, false);
 		this.messageHandler = messageHandler;
 		this.lifeCycleLatch = new CountDownLatch(1);
 	}
@@ -72,12 +72,13 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 	}
 	
 	@Override
-	void onDisconnect() {
-		super.onDisconnect();
-		this.running = false;
-		this.executor.shutdown();
-		this.lifeCycleLatch.countDown();
-		this.messageHandler.onDisconnect();
+	void onDisconnect(SelectionKey selectionKey) {
+		if (this.running){
+			this.running = false;
+			this.executor.shutdown();
+			this.lifeCycleLatch.countDown();
+			this.messageHandler.onDisconnect();
+		}
 	}
 	
 	/**
@@ -135,7 +136,7 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 				this.selectionKey.interestOps(SelectionKey.OP_WRITE);
 			} 
 			catch (CancelledKeyException e) {
-				// may happen when client kills connection before receiving a reply
+				// may happen when server kills connection before receiving a reply
 				logger.warn("Selection Key was canceled. No reply will be sent");
 			}
 		}

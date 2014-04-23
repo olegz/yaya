@@ -24,20 +24,30 @@ import org.apache.commons.logging.LogFactory;
 import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 
 /**
+ * INTERNAL API
+ * 
  * @author Oleg Zhurakousky
  *
  */
-public class ApplicationContainerLauncherEmulatorImpl extends AbstractApplicationContainerLauncher {
+class ApplicationContainerLauncherEmulatorImpl extends AbstractApplicationContainerLauncher {
 	
 	private final Log logger = LogFactory.getLog(ApplicationContainerLauncherEmulatorImpl.class);
 	
 	private final ExecutorService executor;
 
+	/**
+	 * 
+	 * @param applicationSpecification
+	 * @param containerSpecification
+	 */
 	public ApplicationContainerLauncherEmulatorImpl(PrimitiveImmutableTypeMap applicationSpecification, PrimitiveImmutableTypeMap containerSpecification) {
 		super(applicationSpecification, containerSpecification);
 		this.executor = Executors.newCachedThreadPool();
 	}
 
+	/**
+	 * 
+	 */
 	@Override
 	void doLaunch() throws Exception {
 		for (int i = 0; i < this.containerCount; i++) {	
@@ -59,6 +69,9 @@ public class ApplicationContainerLauncherEmulatorImpl extends AbstractApplicatio
 		}
 	}
 
+	/**
+	 * 
+	 */
 	@Override
 	void doShutDown() throws Exception {
 		logger.info("Shutting down executor");

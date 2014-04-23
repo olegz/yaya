@@ -13,13 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api.net;
+package oz.hadoop.yarn.api;
+
+import java.nio.ByteBuffer;
 
 /**
  * @author Oleg Zhurakousky
  *
  */
-public interface ShutdownAware {
+public interface DataProcessorReplyListener {
 
-	void preShutdown();
+	void onReply(ByteBuffer replyData);
 }

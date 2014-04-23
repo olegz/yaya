@@ -40,11 +40,16 @@ public class JavaBasedYarnApplicationEmulatorDemo {
 	 */
 	public static void main(String[] args) throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ReverseMessageContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
-								containerCount(4).
-								withApplicationMaster().
-									build("JavaBasedYarnApplicationDemo");
-		
+				containerCount(4).
+				withApplicationMaster().
+					maxAttempts(2).
+					build("JavaBasedYarnApplicationDemo");
+
 		yarnApplication.launch();
+		/*
+		 * This demo demonstrates self-shutdown where application will exit
+		 * upon completion of tasks by all containers.
+		 */
 	}
 	
 	/**

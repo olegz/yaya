@@ -13,17 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api.net;
+package oz.hadoop.yarn.api;
 
-import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 
 /**
  * @author Oleg Zhurakousky
  *
  */
-public interface SocketHandler {
+public interface DataProcessor {
+
+	void process(ByteBuffer data);
 	
-	InetSocketAddress start();
+	void process(ByteBuffer data, String ipRegexFilter);
 	
-	void stop(boolean force);
+	long completedSinceStart();
+	
+	int containers();
+	
+	void registerReplyListener(DataProcessorReplyListener replyListener);
+	
 }

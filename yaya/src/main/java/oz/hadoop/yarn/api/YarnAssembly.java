@@ -121,7 +121,7 @@ public final class YarnAssembly {
 	 * try execution using different JVM.   
 	 *
 	 */
-	public static WithVcPrMemCount<ContainerDelegate[]> forApplicationContainer(Class<? extends ApplicationContainerProcessor> applicationContainer, String javaShellPath) {
+	public static WithVcPrMemCount<DataProcessor> forApplicationContainer(Class<? extends ApplicationContainerProcessor> applicationContainer, String javaShellPath) {
 		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
 		StringAssertUtils.assertNotEmptyAndNoSpaces(javaShellPath);
 		return createC(null, applicationContainer, null, javaShellPath);
@@ -136,7 +136,7 @@ public final class YarnAssembly {
 	 * and {@link ByteBuffer} arguments, creating short-lived Application Containers. See its javadoc for more explanation.   
 	 *
 	 */
-	public static WithVcPrMemCount<ContainerDelegate[]> forApplicationContainer(Class<? extends ApplicationContainerProcessor> applicationContainer) {
+	public static WithVcPrMemCount<DataProcessor> forApplicationContainer(Class<? extends ApplicationContainerProcessor> applicationContainer) {
 		Assert.notNull(applicationContainer, "'applicationContainer' must not be null");
 		return createC(null, applicationContainer, null, null);
 	}
@@ -158,12 +158,12 @@ public final class YarnAssembly {
 	 * 
 	 */
 	@SuppressWarnings("unchecked")
-	private static WithVcPrMemCount<ContainerDelegate[]> createC(String command, Class<? extends ApplicationContainerProcessor> applicationContainer, ByteBuffer arguments, String javaShellPath) {
+	private static WithVcPrMemCount<DataProcessor> createC(String command, Class<? extends ApplicationContainerProcessor> applicationContainer, ByteBuffer arguments, String javaShellPath) {
 		ProxyFactory pf = new ProxyFactory();
 		pf.setInterfaces(WithVcPrMemCount.class);
 		AssemblyAdvice assemblyAdvice = new AssemblyAdvice(command, applicationContainer, arguments, javaShellPath);
 		pf.addAdvice(assemblyAdvice);
-		WithVcPrMemCount<ContainerDelegate[]> builder = (WithVcPrMemCount<ContainerDelegate[]>) pf.getProxy();
+		WithVcPrMemCount<DataProcessor> builder = (WithVcPrMemCount<DataProcessor>) pf.getProxy();
 		return builder;
 	}
 	

@@ -72,7 +72,7 @@ class ByteBufferPoll {
 			buffer = ByteBuffer.allocate(this.initialBufferSize);
 		}
 		else {
-			logger.debug("Polled buffer");
+			logger.trace("Polled buffer");
 		}
 		buffer.clear();
 		return buffer;
@@ -84,7 +84,7 @@ class ByteBufferPoll {
 	 * @param buffer
 	 */
 	public void release(ByteBuffer buffer){
-		logger.debug("Releasing buffer");
+		logger.trace("Releasing buffer");
 		this.bufferQueue.offer(buffer);
 	}
 }

@@ -17,178 +17,47 @@ package oz.hadoop.yarn.api.net;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
-import oz.hadoop.yarn.api.YarnApplication;
 
 /**
- * ContainerDelegate is a local proxy to the remote Application Container. 
- * It is created and returned in a form of an array during the invocation of {@link YarnApplication#launch()}
- * method essentially signifying that the Yarn application have been deployed successfully 
- * and interaction with Application Containers through simple messaging 
- * (see {@link ContainerDelegate#exchange(ByteBuffer)}) method can commence.
  * 
  * @author Oleg Zhurakousky
+ *
  */
-public class ContainerDelegate {
-	private final Log logger = LogFactory.getLog(ContainerDelegate.class);
-	
-	private final SelectionKey selectionKey;
-	
-	private final ApplicationContainerServerImpl clientServer;
-	
-	private final Semaphore executionGovernor;
-	
-	/**
-	 * 
-	 * @param selectionKey
-	 * @param clientServer
-	 */
-	ContainerDelegate(SelectionKey selectionKey, ApplicationContainerServerImpl clientServer){
-		this.selectionKey = selectionKey;
-		this.clientServer = clientServer;
-		this.executionGovernor = new Semaphore(1);
-	}
-	
+public interface ContainerDelegate {
+
 	/**
 	 * Returns the host name of the active Application Container represented by this 
 	 * ContainerDelegate.
 	 */
-	public String getHost(){
-		try {
-			return ((InetSocketAddress)((SocketChannel)this.selectionKey.channel()).getLocalAddress()).getHostName();
-		} 
-		catch (Exception e) {
-			throw new IllegalStateException(e);
-		}
-	}
-	
-	/**
-	 * Will attempt to terminate the Application Container represented by this delegate
-	 * immediately.
-	 */
-	public void terminate() {
-		
-	}
-	
-	/**
-	 * Will attempt to shut down the Application Container gracefully waiting for
-	 * it to complete its task
-	 */
-	public void shutDown(){
+	InetSocketAddress getHost();
 
-	}
+	/**
+	 * A general purpose method which allows data represented as 
+	 * {@link ByteBuffer}s to be sent for processing to the Application Container 
+	 * represented by this ContainerDelegate.
+	 */
+	void process(ByteBuffer data, ReplyPostProcessor replyPostProcessor);
 	
 	/**
-	 * Will attempt to shut down the Application Container gracefully waiting for
-	 * it to complete its task within specified timeout. It will return 'true'
-	 * if task completed and Application Container was shut down and 'false'
-	 * if it wasn't after which you may choose to terminate it by calling {@link #terminate()}
-	 * method.
+	 * Since ContainerDelegate is a proxy to the actual Application Container, depending on the 
+	 * implementation details of the Application Container, this delegate may need to be aware
+	 * of when Application Container finishes the task. If so this method could be implemented
+	 * to signal such task completion.
+	 * In the current implementation each Application Container dedicates a single thread to
+	 * process user's task and should not be able to accept more tasks until previous task completes.
+	 * In other words subsequent calls to {@link #process(ByteBuffer, ReplyPostProcessor)} method
+	 * should block until previous call completes. Since invocation of {@link #process(ByteBuffer, ReplyPostProcessor)}
+	 * happens over the network, its naturally asynchronous and implementation of {@link ContainerDelegateImpl}
+	 * will use {@link Semaphore} to govern invocations of {@link #process(ByteBuffer, ReplyPostProcessor)} method.
+	 * <br>
+	 * Having said that, in the future we may provide different options where Application Containers will 
+	 * use multiple threads to process multiple tasks, hence this method is optional and depends on 
+	 * the control logic provided by the implementtaion of this strategy.
 	 */
-	public boolean shutDown(int timeout){
-		return false;
-	}
+	void release();
 	
-	/**
-	 * Will return 'true' if the Application Container represented by this
-	 * delegate is running and false if its not (shut down or terminated).
-	 * 
-	 * @return
-	 */
-	public boolean isRunning(){
-		return false;
-	}
 	
-	/**
-	 * A general purpose request/reply method which allowing simple messages in the form of the 
-	 * {@link ByteBuffer}s to be exchanged with the Application Container represented by this ContainerDelegate.
-	 */
-	public Future<ByteBuffer> exchange(ByteBuffer messageBuffer){
-		try {
-			this.executionGovernor.acquire();
-			return new ExecutionGoverningFuture(clientServer.exchangeWith(this.selectionKey, messageBuffer));
-		} 
-		catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new IllegalStateException(e);
-		}
-	}
-	
-	/**
-	 * Ensures that only one request/reply session at a time with AC
-	 *
-	 */
-	private class ExecutionGoverningFuture implements Future<ByteBuffer> {
-		private final Future<ByteBuffer> targetFuture;
-		/**
-		 * 
-		 */
-		public ExecutionGoverningFuture(Future<ByteBuffer> targetFuture) {
-			this.targetFuture = targetFuture;
-		}
-		
-		/**
-		 * 
-		 */
-		@Override
-		public boolean cancel(boolean mayInterruptIfRunning) {
-			try {
-				boolean canceled = this.targetFuture.cancel(mayInterruptIfRunning);
-				ContainerDelegate.this.executionGovernor.release();
-				return canceled;
-			} 
-			finally {
-				try {
-					ContainerDelegate.this.selectionKey.channel().close();
-				} 
-				catch (Exception e) {
-					logger.warn("Exception during channel close", e);
-				}
-			}
-		}
+	boolean available();
 
-		/**
-		 * 
-		 */
-		@Override
-		public boolean isCancelled() {
-			return this.targetFuture.isCancelled();
-		}
-
-		@Override
-		public boolean isDone() {
-			return this.targetFuture.isDone();
-		}
-
-		/**
-		 * 
-		 */
-		@Override
-		public ByteBuffer get() throws InterruptedException, ExecutionException {
-			ByteBuffer replyBuffer = this.targetFuture.get();
-			ContainerDelegate.this.executionGovernor.release();
-			return replyBuffer;
-		}
-
-		/**
-		 * 
-		 */
-		@Override
-		public ByteBuffer get(long timeout, TimeUnit unit)
-				throws InterruptedException, ExecutionException, TimeoutException {
-			ByteBuffer replyBuffer = this.targetFuture.get(timeout, unit);
-			ContainerDelegate.this.executionGovernor.release();
-			return replyBuffer;
-		}	
-	}
 }

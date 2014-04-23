@@ -102,8 +102,11 @@ class ApplicationContainer extends AbstractContainer {
 		logger.info("###### Application Container Stopped ######");
 	}
 	
-	
-	
+	/**
+	 * 
+	 * @param applicationContainer
+	 * @return
+	 */
 	private ApplicationContainerClient connectWithApplicationMaster(ApplicationContainerProcessor applicationContainer){
 		InetSocketAddress address = new InetSocketAddress(this.applicationSpecification.getString(YayaConstants.CLIENT_HOST), 
 				this.applicationSpecification.getInt(YayaConstants.CLIENT_PORT));

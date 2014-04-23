@@ -15,6 +15,8 @@
  */
 package oz.hadoop.yarn.api.net;
 
+import oz.hadoop.yarn.api.DataProcessorReplyListener;
+
 /**
  * Strategy for implementing ClientServers.
  * ClientServers is a server which will be created by the invoker of Yarn 
@@ -27,22 +29,27 @@ package oz.hadoop.yarn.api.net;
 public interface ApplicationContainerServer extends SocketHandler {
 
 	/**
-	 * Sets the wait time (in seconds) to receive a reply from the {@link ApplicationContainerClient}.
-	 * Default is 1 min (60 sec).
-	 * 
-	 */
-	void setReplyWaitTimeout(int replyWaitTimeout);
-
-	/**
 	 * Blocking method allowing this ClientServer to wait until all
 	 * {@link ApplicationContainerClient}s have been connected to it.
 	 */
 	boolean awaitAllClients(long timeOutInSeconds);
 
 	/**
-	 * Returns an array of {@link ContainerDelegate}s which acts as
+	 * Returns an array of {@link ContainerDelegateImpl}s which acts as
 	 * local proxies to the remote Application Containers allowing 
 	 * a simple message exchange with Application Containers.
 	 */
 	ContainerDelegate[] getContainerDelegates();
+	
+	/**
+	 * 
+	 * @param replyListener
+	 */
+	void registerReplyListener(DataProcessorReplyListener replyListener);
+	
+	/**
+	 * 
+	 * @return
+	 */
+	int liveContainers();
 }

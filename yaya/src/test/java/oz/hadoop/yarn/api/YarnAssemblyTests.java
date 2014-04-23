@@ -27,7 +27,6 @@ import java.nio.ByteBuffer;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.junit.Test;
 
-import oz.hadoop.yarn.api.net.ContainerDelegate;
 import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 
 /**
@@ -178,8 +177,8 @@ public class YarnAssemblyTests {
 	@Test
 	public void validateJavaBasedContainerWithDefaults() {
 		
-		ApplicationMasterSpecBuilder<ContainerDelegate[]> applicationMasterBuilder = YarnAssembly.forApplicationContainer(DslTestApplicationContainer.class).withApplicationMaster();
-		YarnApplication<ContainerDelegate[]> yarnApplication = applicationMasterBuilder.build("my-application");
+		ApplicationMasterSpecBuilder<DataProcessor> applicationMasterBuilder = YarnAssembly.forApplicationContainer(DslTestApplicationContainer.class).withApplicationMaster();
+		YarnApplication<DataProcessor> yarnApplication = applicationMasterBuilder.build("my-application");
 		
 		PrimitiveImmutableTypeMap specMap = (PrimitiveImmutableTypeMap) yarnApplication.getApplicationSpecification();
 		assertEquals(1, specMap.getInt(YayaConstants.VIRTUAL_CORES));
@@ -201,14 +200,14 @@ public class YarnAssemblyTests {
 	@Test
 	public void validateJavaBasedContainerWithCustom() {
 		YarnConfiguration yarnConfig = new YarnConfiguration();
-		ApplicationMasterSpecBuilder<ContainerDelegate[]> applicationMasterBuilder = YarnAssembly.forApplicationContainer(DslTestApplicationContainer.class).
+		ApplicationMasterSpecBuilder<DataProcessor> applicationMasterBuilder = YarnAssembly.forApplicationContainer(DslTestApplicationContainer.class).
 				memory(28).
 				containerCount(4).
 				virtualCores(34).
 				priority(3).
 				withApplicationMaster(yarnConfig);
 		
-		YarnApplication<ContainerDelegate[]> yarnApplication = applicationMasterBuilder.
+		YarnApplication<DataProcessor> yarnApplication = applicationMasterBuilder.
 				maxAttempts(12).
 				priority(34).
 				queueName("foo").
@@ -273,14 +272,14 @@ public class YarnAssemblyTests {
 	@Test
 	public void validateJavaBasedContainerWithShell() {
 		YarnConfiguration yarnConfig = new YarnConfiguration();
-		ApplicationMasterSpecBuilder<ContainerDelegate[]> applicationMasterBuilder = YarnAssembly.forApplicationContainer(DslTestApplicationContainer.class, "java").
+		ApplicationMasterSpecBuilder<DataProcessor> applicationMasterBuilder = YarnAssembly.forApplicationContainer(DslTestApplicationContainer.class, "java").
 				memory(28).
 				containerCount(4).
 				virtualCores(34).
 				priority(3).
 				withApplicationMaster(yarnConfig);
 		
-		YarnApplication<ContainerDelegate[]> yarnApplication = applicationMasterBuilder.
+		YarnApplication<DataProcessor> yarnApplication = applicationMasterBuilder.
 				maxAttempts(12).
 				priority(34).
 				queueName("foo").

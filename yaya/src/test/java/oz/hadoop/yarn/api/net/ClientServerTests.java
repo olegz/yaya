@@ -22,8 +22,6 @@ import static junit.framework.Assert.assertNull;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -41,41 +39,34 @@ import org.junit.Test;
  */
 public class ClientServerTests {
 	
-	static Random random = new Random();
-	
-	
-	private static SelectionKey getRandom(List<SelectionKey> selectionKeys){
-		int randomIndex = random.nextInt(selectionKeys.size());
-		SelectionKey selectionKey = selectionKeys.get(randomIndex);
-		return selectionKey;
-	}
-	
 	@Test
 	public void testMoreThenExpectedClients() throws Exception {
-		int expectedClients = 2;
-		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients);
-		InetSocketAddress address = clientServer.start();
-		
-		for (int i = 0; i < 40; i++) {
-			ApplicationContainerClientImpl containerClientOne = new ApplicationContainerClientImpl(address, new EchoMessageHandler());
-			containerClientOne.start();
+		for (int y = 0; y < 10; y++) {
+			int expectedClients = 2;
+			InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
+			ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false);
+			InetSocketAddress address = clientServer.start();
+			
+			for (int i = 0; i < 40; i++) {
+				ApplicationContainerClientImpl containerClientOne = new ApplicationContainerClientImpl(address, new EchoMessageHandler());
+				containerClientOne.start();
+				System.out.println("I" + i);
+			}
+			
+			clientServer.awaitAllClients(2);
+			
+			ContainerDelegate[] containerDelegates = clientServer.getContainerDelegates();
+			
+			assertEquals(expectedClients, containerDelegates.length);
+			clientServer.stop(false);
 		}
-		
-		clientServer.awaitAllClients(2);
-		
-		ContainerDelegate[] containerDelegates = clientServer.getContainerDelegates();
-		
-		assertEquals(expectedClients, containerDelegates.length);
-		clientServer.stop();
-		System.out.println();
 	}
 	
 	@Test(timeout=5000)
 	public void testSimpleInterruction() throws Exception {
 		int expectedClients = 2;
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false);
 		InetSocketAddress address = clientServer.start();
 		
 		for (int i = 0; i < expectedClients; i++) {
@@ -89,20 +80,24 @@ public class ClientServerTests {
 		
 		assertEquals(expectedClients, containerDelegates.length);
 		for (int i = 0; i < 2; i++) {
-			for (ContainerDelegate containerDelegate : containerDelegates) {
-				Future<ByteBuffer> replyFuture = containerDelegate.exchange(ByteBuffer.wrap(new String("Hello" + i).getBytes()));
-				ByteBuffer reply = replyFuture.get();
-				String replyString = new String(reply.array()).trim();
-				assertEquals("Hello" + i, replyString);
+			final int I = i;
+			for (final ContainerDelegate containerDelegate : containerDelegates) {
+				containerDelegate.process(ByteBuffer.wrap(new String("Hello" + i).getBytes()), new ReplyPostProcessor() {
+					@Override
+					public void doProcess(ByteBuffer reply) {
+						String replyString = new String(reply.array()).trim();
+						assertEquals("Hello" + I, replyString);
+					}
+				});
 			}
 		}
-		clientServer.stop();
+		clientServer.stop(false);
 	}
 
-	@Test(timeout=5000)
+	@Test//(timeout=5000)
 	public void testServerWithMixedMessages() throws Exception {
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, 1);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, 1, false);
 		InetSocketAddress address = clientServer.start();
 		StringBuffer buffer = new StringBuffer();
 		String s = "Hello World";
@@ -116,24 +111,29 @@ public class ClientServerTests {
 		
 		ApplicationContainerClientImpl containerClient = new ApplicationContainerClientImpl(address, new SampleMessageHandler());
 		containerClient.start();
-		Thread.sleep(100);
-
-		List<SelectionKey> selectionKeys = clientServer.getClientSelectionKeys();
-		SelectionKey selectionKey = getRandom(selectionKeys);
-		ByteBuffer b = ByteBuffer.wrap(message.getBytes());
+		
+		final ByteBuffer b1 = ByteBuffer.wrap(message.getBytes());
+		
+		ContainerDelegate[] containerDelegates = clientServer.getContainerDelegates();
 		
 		// Large message 
-		Future<ByteBuffer> result = clientServer.exchangeWith(selectionKey, b);
-		ByteBuffer resultBuffer = result.get();
-		int reportedMessageSize = resultBuffer.getInt(0); 
-		assertEquals(b.limit(), reportedMessageSize);
+		containerDelegates[0].process(b1, new ReplyPostProcessor() {
+			@Override
+			public void doProcess(ByteBuffer reply) {
+				int reportedMessageSize = reply.getInt(0); 
+				assertEquals(b1.limit(), reportedMessageSize);
+			}
+		});
 		
 		// Small Message
-		b = ByteBuffer.wrap("Hello NIO\r\n".getBytes());
-		result = clientServer.exchangeWith(selectionKey, b);
-		resultBuffer = result.get();
-		reportedMessageSize = resultBuffer.getInt(0); 
-		assertEquals(b.limit(), reportedMessageSize);
+		final ByteBuffer b2 = ByteBuffer.wrap("Hello NIO\r\n".getBytes());
+		containerDelegates[0].process(b2, new ReplyPostProcessor() {
+			@Override
+			public void doProcess(ByteBuffer reply) {
+				int reportedMessageSize = reply.getInt(0); 
+				assertEquals(b2.limit(), reportedMessageSize);
+			}
+		});
 	}
 	
 	@Test(timeout=5000)
@@ -142,7 +142,7 @@ public class ClientServerTests {
 		final int expectedClients = 4;
 		
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false);
 		final InetSocketAddress actualServerAddress = clientServer.start();
 		@SuppressWarnings("unchecked")
 		Future<ApplicationContainerClientImpl>[] clients = new Future[expectedClients];
@@ -165,13 +165,12 @@ public class ClientServerTests {
 		}
 		
 		clientServer.awaitAllClients(30);
-		assertEquals(clientServer.getClientSelectionKeys().size(), expectedClients);
+		assertEquals(clientServer.getContainerDelegates().length, expectedClients);
 		for (Future<ApplicationContainerClientImpl> future : clients) {
 			ApplicationContainerClient client = future.get();
 			assertNotNull(client);
 		}
-		clientServer.stop();
-		System.out.println();
+		clientServer.stop(false);
 	}
 	
 	@Test(timeout=30000)
@@ -180,7 +179,7 @@ public class ClientServerTests {
 		final int expectedClients = 40;
 		
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false);
 		InetSocketAddress actualServerAddress = clientServer.start();
 		for (int i = 0; i < expectedClients; i++) {
 			ApplicationContainerClientImpl containerClient = new ApplicationContainerClientImpl(actualServerAddress, new EchoMessageHandler());
@@ -202,12 +201,15 @@ public class ClientServerTests {
 							for (int y = 0; y < loopCount; y++) {
 								buffer.append(UUID.randomUUID().toString());
 							}
-							String inputMessage = buffer.toString();
+							final String inputMessage = buffer.toString();
 							inputMessage.length();
 							ByteBuffer inputBuffer = ByteBuffer.wrap(inputMessage.getBytes());
-							Future<ByteBuffer> replyBufferFuture = containerDelegate.exchange(inputBuffer);
-							ByteBuffer replyBuffer = replyBufferFuture.get();
-							assertEquals(inputMessage.length(), replyBuffer.limit());
+							containerDelegate.process(inputBuffer, new ReplyPostProcessor() {	
+								@Override
+								public void doProcess(ByteBuffer reply) {
+									assertEquals(inputMessage.length(), reply.limit());
+								}
+							});
 						} 
 						catch (Exception e) {
 							e.printStackTrace();
@@ -224,7 +226,7 @@ public class ClientServerTests {
 		latch.await();
 		assertNull(error.get());
 		
-		clientServer.stop();
+		clientServer.stop(false);
 		executor.shutdown();
 		System.out.println("Stopped");
 	}

@@ -19,16 +19,15 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
-import java.net.InetAddress;
 import java.nio.ByteBuffer;
-import java.util.concurrent.Future;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
 import org.junit.Test;
 import org.springframework.core.io.ClassPathResource;
-
-import oz.hadoop.yarn.api.net.ContainerDelegate;
 
 /**
  * @author Oleg Zhurakousky
@@ -38,33 +37,91 @@ public class LocalApplicationLaunchTests {
 	
 	private static AtomicInteger flag = new AtomicInteger();
 	
-	@Test(timeout=5000)
+	@Test//(timeout=5000)
 	public void validateLongLivedJavaContainerLaunch() throws Exception {
-		YarnApplication<ContainerDelegate[]> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class).
+		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class).
 												containerCount(2).
 												memory(512).withApplicationMaster().
 													maxAttempts(2).
 													priority(2).
 													build("sample-yarn-application");
 		
-		ContainerDelegate[] containerDelegates = yarnApplication.launch();
-		assertEquals(2, containerDelegates.length);
+		DataProcessor dataProcessor = yarnApplication.launch();
+		assertEquals(2, dataProcessor.containers());
 		
-		for (ContainerDelegate containerDelegate : containerDelegates) {
-			InetAddress containersAddress = InetAddress.getByName(containerDelegate.getHost());
-			assertTrue(containersAddress.isReachable(1000));
-		}
 		for (int i = 0; i < 5; i++) {
-			for (ContainerDelegate containerDelegate : containerDelegates) {
-				Future<ByteBuffer> reply = containerDelegate.exchange(ByteBuffer.wrap(("Hello Yarn!-" + i).getBytes()));
-				ByteBuffer r = reply.get();
-				byte[] replyBytes = new byte[r.limit()];
-				r.get(replyBytes);
-				assertEquals("Hello Yarn!-" + i, new String(replyBytes));
+			for (int j = 0; j < dataProcessor.containers(); j++) {
+				dataProcessor.process(ByteBuffer.wrap(("Hello Yarn!-" + i).getBytes()));
 			}
 		}
 		assertTrue(yarnApplication.isRunning());
 		yarnApplication.shutDown();
+		assertFalse(yarnApplication.isRunning());
+	}
+	
+	@Test(timeout=30000)
+	public void validateLongLivedJavaContainerLaunchWithGracefullShutdown() throws Exception {
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(SimpleRandomDelayContainer.class).
+												containerCount(4).
+												withApplicationMaster().
+													build("sample-yarn-application");
+		
+		final DataProcessor dataProcessor = yarnApplication.launch();
+		assertEquals(4, dataProcessor.containers());
+		executor.execute(new Runnable() {	
+			@Override
+			public void run() {
+				for (int i = 0; i < 1000000; i++) {
+					for (int j = 0; j < dataProcessor.containers(); j++) {
+						try {
+							dataProcessor.process(ByteBuffer.wrap(("Hello Yarn!-" + i).getBytes()));
+						} 
+						catch (Exception e) {
+							e.printStackTrace();
+							throw new IllegalStateException("Failed to submit data for processing", e);
+						}
+					}
+				}
+			}
+		});
+		
+		assertTrue(yarnApplication.isRunning());
+		Thread.sleep(new Random().nextInt(5000));
+		yarnApplication.shutDown();
+		assertFalse(yarnApplication.isRunning());
+	}
+	
+	@Test
+	public void validateLongLivedJavaContainerLaunchWithTermination() throws Exception {
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(SimpleRandomDelayContainer.class).
+												containerCount(4).
+												withApplicationMaster().
+													build("sample-yarn-application");
+		
+		final DataProcessor dataProcessor = yarnApplication.launch();
+		assertEquals(4, dataProcessor.containers());
+		executor.execute(new Runnable() {	
+			@Override
+			public void run() {
+				for (int i = 0; i < 1000000; i++) {
+					for (int j = 0; j < dataProcessor.containers(); j++) {
+						try {
+							dataProcessor.process(ByteBuffer.wrap(("Hello Yarn!-" + i).getBytes()));
+						} 
+						catch (Exception e) {
+							e.printStackTrace();
+							throw new IllegalStateException("Failed to submit data for processing", e);
+						}
+					}
+				}
+			}
+		});
+		
+		assertTrue(yarnApplication.isRunning());
+		Thread.sleep(new Random().nextInt(5000));
+		yarnApplication.terminate();
 		assertFalse(yarnApplication.isRunning());
 	}
 	
@@ -83,7 +140,7 @@ public class LocalApplicationLaunchTests {
 		assertFalse(yarnApplication.isRunning());
 	}
 	
-	@Test(timeout=2000)
+	@Test//(timeout=2000)
 	public void validateJavaContainerLaunchSelfShutdown() throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class, ByteBuffer.wrap("Hello".getBytes())).
 												containerCount(2).
@@ -93,8 +150,10 @@ public class LocalApplicationLaunchTests {
 													build("sample-yarn-application");
 		assertFalse(yarnApplication.isRunning());
 		yarnApplication.launch();
-		assertTrue(yarnApplication.isRunning());
-		Thread.sleep(500);
+//		assertTrue(yarnApplication.isRunning());
+		System.out.println("A-LIVE CONTAINERS " + yarnApplication.liveContainers());
+		Thread.sleep(15000);
+		System.out.println("B-LIVE CONTAINERS " + yarnApplication.liveContainers());
 		assertEquals(0, yarnApplication.liveContainers());
 		// note, its going to assert true to not running without explicit shutdown 
 		assertFalse(yarnApplication.isRunning());
@@ -112,11 +171,11 @@ public class LocalApplicationLaunchTests {
 		Thread.sleep(4000);
 		// may be add is PartiallyRunning or somethig liek that to see which containers exited
 		assertTrue(yarnApplication.isRunning());
-		yarnApplication.shutDown();
+		yarnApplication.terminate();
 		assertFalse(yarnApplication.isRunning());
 	}
 	
-	@Test(timeout=5000)
+	@Test//(timeout=5000)
 	public void validateJavaContainerLaunchAndVariableProcessTimeWithForcedShutdown() throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(VariableProcessingTime.class, ByteBuffer.wrap("Hello".getBytes())).
 												containerCount(6).
@@ -127,11 +186,12 @@ public class LocalApplicationLaunchTests {
 		yarnApplication.launch();
 		assertEquals(6, yarnApplication.liveContainers());
 		while (yarnApplication.liveContainers() == 6){
-			LockSupport.parkNanos(10000);
+			//System.out.println("LIVE CONTANERS " + yarnApplication.liveContainers());
+			LockSupport.parkNanos(100000);
 		}
 		assertTrue(yarnApplication.liveContainers() < 6);
 		assertTrue(yarnApplication.isRunning());
-		yarnApplication.shutDown();
+		yarnApplication.terminate();
 		assertEquals(0, yarnApplication.liveContainers());
 		assertFalse(yarnApplication.isRunning());
 	}
@@ -170,7 +230,7 @@ public class LocalApplicationLaunchTests {
 		assertEquals(3, yarnApplication.liveContainers());
 		Thread.sleep(3000);
 		assertEquals(3, yarnApplication.liveContainers());
-		yarnApplication.shutDown();
+		yarnApplication.terminate();
 		assertEquals(0, yarnApplication.liveContainers());
 	}
 	
@@ -207,6 +267,26 @@ public class LocalApplicationLaunchTests {
 	public static class SimpleEchoContainer implements ApplicationContainerProcessor {
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
+			try {
+				Thread.sleep(new Random().nextInt(10000));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			return inputMessage;
+		}
+	}
+	
+	/**
+	 * 
+	 */
+	public static class SimpleRandomDelayContainer implements ApplicationContainerProcessor {
+		@Override
+		public ByteBuffer process(ByteBuffer inputMessage) {
+			try {
+				Thread.sleep(new Random().nextInt(10000));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 			return inputMessage;
 		}
 	}

@@ -24,18 +24,20 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.util.Assert;
+
+import oz.hadoop.yarn.api.DataProcessorReplyListener;
 
 /**
  * @author Oleg Zhurakousky
@@ -45,57 +47,59 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	
 	private final Log logger = LogFactory.getLog(ApplicationContainerServerImpl.class);
 	
-	private final Map<SelectionKey, ArrayBlockingQueue<ByteBuffer>> replyMap;
+	private final ConcurrentHashMap<SelectionKey, ReplyPostProcessor> replyCallbackMap;
 	
 	private final CountDownLatch expectedClientContainersMonitor;
 	
 	private final int expectedClientContainers;
 	
-	private volatile int replyWaitTimeout;
+	private volatile DataProcessorReplyListener replyListener;
+	
+	private final Map<SelectionKey, ContainerDelegate> containerDelegates;
+	
+	private final boolean finite;
 	
 	
 	/**
 	 * Will create an instance of this server using host name as 
 	 * {@link InetAddress#getLocalHost()#getHostAddress()} and an 
-	 * ephemeral port selected by the system.
-	 */
-	public ApplicationContainerServerImpl(int expectedClientContainers){
-		this(getDefaultAddress(), expectedClientContainers, null);
-	}
-	
-	/**
-	 * Constructs this ClientServer with specified 'address' and 'expectedClientContainers'.
-	 * The 'expectedClientContainers' represents the amount of expected {@link ApplicationContainerClientImpl}s to be connected
+	 * ephemeral port selected by the system. 
+	 * The 'expectedClientContainers' represents the amount of expected 
+	 * {@link ApplicationContainerClientImpl}s to be connected
 	 * with this ClientServer. 
-	 * @param address
+	 * 
 	 * @param expectedClientContainers
+	 * 			expected Application Containers
+	 * @param finite
+	 * 			whether the YARN application using finite or reusable Application Containers
 	 */
-	public ApplicationContainerServerImpl(InetSocketAddress address, int expectedClientContainers) {
-		this(address, expectedClientContainers, null);
+	public ApplicationContainerServerImpl(int expectedClientContainers, boolean finite){
+		this(getDefaultAddress(), expectedClientContainers, finite);
 	}
 	
 	/**
+	 * Constructs this ClientServer with specified 'address'.
+	 * The 'expectedClientContainers' represents the amount of expected 
+	 * {@link ApplicationContainerClientImpl}s to be connected
+	 * with this ClientServer. 
 	 * 
 	 * @param address
+	 * 			the address to bind to
 	 * @param expectedClientContainers
-	 * @param disconnectAware
+	 * 			expected Application Containers
+	 * @param finite
+	 * 			whether the YARN application using finite or reusable Application Containers
 	 */
-	public ApplicationContainerServerImpl(InetSocketAddress address, int expectedClientContainers, ShutdownAware disconnectAware) {
-		super(address, true, disconnectAware);
+	public ApplicationContainerServerImpl(InetSocketAddress address, int expectedClientContainers, boolean finite) {
+		super(address, true);
 		Assert.isTrue(expectedClientContainers > 0, "'expectedClientContainers' must be > 0");
 		this.expectedClientContainers = expectedClientContainers;
-		this.replyMap = new HashMap<>();
-		this.replyWaitTimeout = Integer.MAX_VALUE;
+		this.replyCallbackMap = new ConcurrentHashMap<SelectionKey, ReplyPostProcessor>();
 		this.expectedClientContainersMonitor = new CountDownLatch(expectedClientContainers);
+		this.containerDelegates = new HashMap<SelectionKey, ContainerDelegate>();
+		this.finite = finite;
 	}
-	
-	/* (non-Javadoc)
-	 * @see oz.hadoop.yarn.api.net.ClientServer#setReplyWaitTimeout(int)
-	 */
-	@Override
-	public void setReplyWaitTimeout(int replyWaitTimeout) {
-		this.replyWaitTimeout = replyWaitTimeout;
-	}
+
 	
 	/* (non-Javadoc)
 	 * @see oz.hadoop.yarn.api.net.ClientServer#awaitAllClients(long)
@@ -103,12 +107,78 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	@Override
 	public boolean awaitAllClients(long timeOutInSeconds) {
 		try {
-			return this.expectedClientContainersMonitor.await(timeOutInSeconds, TimeUnit.SECONDS);
+			boolean connected = this.expectedClientContainersMonitor.await(timeOutInSeconds, TimeUnit.SECONDS);
+			this.buildContainerDelegates();
+			return connected;
 		} 
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			throw new IllegalStateException(e);
+			logger.warn("Interrupted while waiting for all Application Containers to report");
 		}
+		return false;
+	}
+
+	/**
+	 * 
+	 */
+	@Override
+	public int liveContainers() {
+		return this.containerDelegates.size();
+	}
+	
+	/**
+	 * 
+	 */
+	@Override
+	public void stop(boolean force){
+		boolean working = true;
+		while (working){
+			working = this.containerDelegates.size() > 0;
+			int counter = 0;
+			int totalSize = this.containerDelegates.size();
+			Iterator<SelectionKey> containerSelectionKeys = this.containerDelegates.keySet().iterator();
+			while (containerSelectionKeys.hasNext()){
+				SelectionKey selectionKey = containerSelectionKeys.next();
+				ContainerDelegate containerDelegate = this.containerDelegates.get(selectionKey);
+				if (!force){
+					if (containerDelegate.available()){
+						counter++;
+						this.stopContainer(selectionKey, containerSelectionKeys);
+					}
+				}
+				else {
+					counter++;
+					this.stopContainer(selectionKey, containerSelectionKeys);
+				}
+				if (counter == totalSize){
+					working = false;
+				}
+			}
+			if (working && this.containerDelegates.size() > 0){
+				if (logger.isTraceEnabled()){
+					logger.trace("Waiting for remaining " + this.containerDelegates.size() + " containers to finish");
+				}
+				LockSupport.parkNanos(10000000);
+			}
+		}
+		super.stop(force);
+	}
+	
+	/**
+	 * 
+	 */
+	@Override
+	public void registerReplyListener(DataProcessorReplyListener replyListener) {
+		this.replyListener = replyListener;
+	}
+	
+	/* (non-Javadoc)
+	 * @see oz.hadoop.yarn.api.net.ClientServer#getContainerDelegates()
+	 */
+	@Override
+	public ContainerDelegate[] getContainerDelegates(){
+		this.awaitAllClients(10);
+		return this.containerDelegates.values().toArray(new ContainerDelegate[]{});
 	}
 
 	/**
@@ -121,37 +191,27 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 * @param buffer
 	 * @return
 	 */
-	Future<ByteBuffer> exchangeWith(final SelectionKey selectionKey,  ByteBuffer buffer) {
+	void process(SelectionKey selectionKey,  ByteBuffer buffer, ReplyPostProcessor replyPostProcessor) {
+		Assert.isNull(this.replyCallbackMap.putIfAbsent(selectionKey, replyPostProcessor), 
+				"Unprocessed callback remains attached to the SelectionKey. This must be a bug. Please report!");
 		this.doWrite(selectionKey, buffer);
-		Future<ByteBuffer> result = this.getExecutor().submit(new Callable<ByteBuffer>() {
-			@Override
-			public ByteBuffer call() throws Exception {
-				if (logger.isDebugEnabled()){
-					logger.debug("Waiting reply from " + ((SocketChannel)selectionKey.channel()).getRemoteAddress());
-				}
-				ByteBuffer reply = ApplicationContainerServerImpl.this.getReply(selectionKey, ApplicationContainerServerImpl.this.replyWaitTimeout);
-				if (logger.isDebugEnabled()){
-					logger.debug("Receieved reply from " + ((SocketChannel)selectionKey.channel()).getRemoteAddress());
-				}
-				return reply;
-			}
-		});
-		return result;
 	}
 	
 	/**
 	 * 
+	 * @param selectionKey
 	 */
-	ByteBuffer getReply(SelectionKey selectionKey, int replyTimeout){
+	@Override
+	void onDisconnect(SelectionKey selectionKey) {
 		try {
-			return this.replyMap.get(selectionKey).poll(replyTimeout, TimeUnit.MILLISECONDS);
+			selectionKey.channel().close();
 		} 
-		catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new IllegalStateException(e);
+		catch (Exception e) {
+			logger.error("Failed to clode channel");
 		}
+		this.containerDelegates.remove(selectionKey);
 	}
-	
+
 	/**
 	 * 
 	 */
@@ -175,39 +235,64 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 		ServerSocketChannel serverChannel = (ServerSocketChannel) selectionKey.channel();
 		SocketChannel channel = serverChannel.accept();
 		
-		try {
-			if (this.expectedClientContainersMonitor.getCount() == 0){
-				logger.warn("Refusing connection from " + channel.getRemoteAddress() + ", since " + 
-						this.expectedClientContainers + " ApplicationContainerClients " +
-						"identified by 'expectedClientContainers' already connected.");
-				channel.close();
-			}
-			else {
-				channel.configureBlocking(false);
-		        SelectionKey clientSelectionKey = channel.register(this.getSelector(), SelectionKey.OP_READ);
-		        if (logger.isInfoEnabled()){
-		        	logger.info("Accepted conection request from: " + channel.socket().getRemoteSocketAddress());
-		        }
-				this.replyMap.put(clientSelectionKey, new ArrayBlockingQueue<ByteBuffer>(1));
-				this.expectedClientContainersMonitor.countDown();
-			}
-		} 
-		catch (Exception e) {
-			throw new IllegalStateException("Failed in accept()", e);
+		if (this.expectedClientContainersMonitor.getCount() == 0){
+			logger.warn("Refusing connection from " + channel.getRemoteAddress() + ", since " + 
+					this.expectedClientContainers + " ApplicationContainerClients " +
+					"identified by 'expectedClientContainers' already connected.");
+			channel.close();
+		}
+		else {
+			channel.configureBlocking(false);
+	        channel.register(this.getSelector(), SelectionKey.OP_READ);
+	        if (logger.isInfoEnabled()){
+	        	logger.info("Accepted conection request from: " + channel.socket().getRemoteSocketAddress());
+	        }
+			this.expectedClientContainersMonitor.countDown();
 		}
 	}
 	
 	/**
-	 * Unlike the client side the read on the server will happen using receiving thread,
-	 * since all it does is enqueues reply buffer to the dedicated queue
+	 * Unlike the client side the read on the server will happen using receiving thread.
 	 */
 	@Override
-	void read(SelectionKey selectionKey, ByteBuffer messageBuffer) throws IOException {
+	void read(SelectionKey selectionKey, ByteBuffer replyBuffer) throws IOException {
+		ReplyPostProcessor replyCallbackHandler = ((ReplyPostProcessor)this.replyCallbackMap.remove(selectionKey));
 		if (logger.isDebugEnabled()){
-    		logger.debug("Receiving and enqueuing result from " + ((SocketChannel)selectionKey.channel()).getRemoteAddress());
-    	}
-    	Queue<ByteBuffer> replyQueue = this.replyMap.get(selectionKey);
-    	replyQueue.offer(messageBuffer);
+			logger.debug("Reply recieved from " + replyCallbackHandler);
+		}
+		if (this.replyListener != null){
+			this.replyListener.onReply(replyBuffer);
+		}
+		replyCallbackHandler.postProcess(replyBuffer);
+		if (this.finite){
+			this.onDisconnect(selectionKey);
+		}
+	}
+	
+	/**
+	 * 
+	 */
+	void doWrite(SelectionKey selectionKey, ByteBuffer buffer) {
+		ByteBuffer message = ByteBufferUtils.merge(ByteBuffer.allocate(4).putInt(buffer.limit() + 4), buffer);
+		message.flip();
+
+		selectionKey.attach(message);
+		selectionKey.interestOps(SelectionKey.OP_WRITE);
+	}
+	
+	/**
+	 * 
+	 * @param selectionKey
+	 * @param containerSelectionKeys
+	 */
+	private void stopContainer(SelectionKey selectionKey, Iterator<SelectionKey> containerSelectionKeys){
+		try {
+			selectionKey.channel().close();
+		} 
+		catch (Exception e) {
+			logger.warn("Failed to close channel", e);
+		}
+		containerSelectionKeys.remove();
 	}
 	
 	/**
@@ -215,7 +300,7 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 * only {@link SelectionKey}s  that belong to {@link SocketChannel} of the client connection 
 	 * @return
 	 */
-	List<SelectionKey> getClientSelectionKeys() {
+	private List<SelectionKey> getClientSelectionKeys() {
 		List<SelectionKey> selectorKeys = new ArrayList<>();
 		if (this.getSelector().isOpen()){
 			for (SelectionKey selectionKey : this.getSelector().keys()) {
@@ -227,32 +312,14 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 		return selectorKeys;
 	}
 	
-	/* (non-Javadoc)
-	 * @see oz.hadoop.yarn.api.net.ClientServer#getContainerDelegates()
-	 */
-	@Override
-	public ContainerDelegate[] getContainerDelegates(){
-		List<ContainerDelegate> containerDelegates = new ArrayList<>();
-		for (SelectionKey selectionKey : getClientSelectionKeys()) {
-			if (selectionKey.isValid() && selectionKey.selector().isOpen()){
-				containerDelegates.add(new ContainerDelegate(selectionKey, this));
-			}
-		}
-		return containerDelegates.toArray(new ContainerDelegate[]{});
-	}
-	
 	/**
 	 * 
 	 */
-	void doWrite(SelectionKey selectionKey, ByteBuffer buffer) {
-		try {
-			ByteBuffer message = ByteBufferUtils.merge(ByteBuffer.allocate(4).putInt(buffer.limit() + 4), buffer);
-			message.flip();
-			selectionKey.attach(message);
-			selectionKey.interestOps(SelectionKey.OP_WRITE);
-		} 
-		catch (Exception e) {
-			e.printStackTrace();
+	private void buildContainerDelegates(){
+		for (SelectionKey selectionKey : this.getClientSelectionKeys()) {
+			if (selectionKey.isValid() && selectionKey.selector().isOpen()){
+				this.containerDelegates.put(selectionKey, new ContainerDelegateImpl(selectionKey, this));
+			}
 		}
 	}
 	

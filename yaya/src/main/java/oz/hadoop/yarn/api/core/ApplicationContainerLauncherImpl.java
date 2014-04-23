@@ -66,6 +66,11 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 	
 	private final YarnConfiguration yarnConfig;
 
+	/**
+	 * 
+	 * @param applicationSpecification
+	 * @param containerSpecification
+	 */
 	public ApplicationContainerLauncherImpl(PrimitiveImmutableTypeMap applicationSpecification, PrimitiveImmutableTypeMap containerSpecification) {
 		super(applicationSpecification, containerSpecification);
 		this.callbackSupport = new ApplicationMasterCallbackSupport();
@@ -75,6 +80,9 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 		this.yarnConfig = new YarnConfiguration();
 	}
 	
+	/**
+	 * 
+	 */
 	@Override
 	void doLaunch() throws Exception {
 		this.startResourceManagerClient();
@@ -90,6 +98,9 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 		}
 	}
 
+	/**
+	 * 
+	 */
 	@Override
 	void doShutDown() throws Exception {
 		String suffix = this.applicationSpecification.getString(YayaConstants.APPLICATION_NAME) + "_master/" + this.applicationSpecification.getInt(YayaConstants.APP_ID) + "/";

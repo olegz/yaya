@@ -16,12 +16,20 @@
 package oz.hadoop.yarn.api.core;
 
 /**
+ * INTERNAL API
+ *  
  * @author Oleg Zhurakousky
  *
  */
-public interface ApplicationContainerLauncher {
+interface ApplicationContainerLauncher {
 
+	/**
+	 * 
+	 */
 	void launch();
 	
+	/**
+	 * 
+	 */
 	void shutDown();
 }

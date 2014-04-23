@@ -47,14 +47,17 @@ public class JavaBasedYarnApplicationClusterDemo {
 	 * by executing StartMiniCluster.java first.
 	 */
 	public static void main(String[] args) throws Exception {
-		YarnConfiguration yarnConfiguration = new YarnConfiguration();
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ReverseMessageContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
 								containerCount(4).
-								withApplicationMaster(yarnConfiguration).
+								withApplicationMaster(new YarnConfiguration()).
 									maxAttempts(2).
 									build("JavaBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
+		/*
+		 * This demo demonstrates self-shutdown where application will exit
+		 * upon completion of tasks by all containers.
+		 */
 	}
 	
 	/**

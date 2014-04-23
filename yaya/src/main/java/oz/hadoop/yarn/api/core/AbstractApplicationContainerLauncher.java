@@ -41,7 +41,11 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 	
 	protected volatile Throwable error;
 	
-	
+	/**
+	 * 
+	 * @param applicationSpecification
+	 * @param containerSpecification
+	 */
 	public AbstractApplicationContainerLauncher(PrimitiveImmutableTypeMap applicationSpecification, PrimitiveImmutableTypeMap containerSpecification){
 		this.applicationSpecification = applicationSpecification;
 		this.containerSpecification = containerSpecification;
@@ -49,6 +53,9 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 		this.livelinessBarrier = new CountDownLatch(this.containerCount);
 	}
 
+	/**
+	 * 
+	 */
 	@Override
 	public void launch() {
 		try {
@@ -74,6 +81,9 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 		}
 	}
 
+	/**
+	 * 
+	 */
 	@Override
 	public void shutDown() {
 		try {
@@ -86,9 +96,16 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 		}
 	}
 	
+	/**
+	 * 
+	 * @throws Exception
+	 */
 	abstract void doLaunch() throws Exception;
 	
-	
+	/**
+	 * 
+	 * @throws Exception
+	 */
 	abstract void doShutDown() throws Exception;
 
 }

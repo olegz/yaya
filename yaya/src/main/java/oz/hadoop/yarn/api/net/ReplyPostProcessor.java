@@ -15,15 +15,32 @@
  */
 package oz.hadoop.yarn.api.net;
 
-import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 
 /**
  * @author Oleg Zhurakousky
  *
  */
-public interface SocketHandler {
+public abstract class ReplyPostProcessor {
 	
-	InetSocketAddress start();
+	private volatile ContainerDelegate containerDelegate;
 	
-	void stop(boolean force);
+	public void postProcess(ByteBuffer reply) {
+		try {
+			this.doProcess(reply);
+		} 
+		finally {
+			this.release();
+		}
+	}
+	
+	public abstract void doProcess(ByteBuffer reply);
+	
+	void setContainerDelegate(ContainerDelegate containerDelegate) {
+		this.containerDelegate = containerDelegate;
+	}
+	
+	private void release(){
+		this.containerDelegate.release();
+	}
 }

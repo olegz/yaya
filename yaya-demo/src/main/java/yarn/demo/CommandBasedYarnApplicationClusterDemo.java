@@ -53,18 +53,17 @@ public class CommandBasedYarnApplicationClusterDemo {
 		
 		yarnApplication.launch();
 		
+		// let it run for a bit
+		Thread.sleep(5000);
 		/*
-		 * As you can see this demo is slightly different then its Emulated counterpart.
-		 * It demonstrates command which will result in infinite process. So essentially this demo demonstrates 
-		 * how a such process could be terminated.  
+		 * As you can see, the command we are executing will result in the never ending process.
+		 * So executing yarnApplication.shutDown() will not do you any good in this case.
+		 * The terminate() method will terminate running process(s).
 		 */
-		Thread.sleep(10000);
-		
-		yarnApplication.shutDown();
+		yarnApplication.terminate();
 		/*
 		 * If running in the local mini-cluster check target/LOCAL_YARN_CLUSTER directory of mini-cluster project 
 		 * for application logs
 		 */
 	}
-	
 }

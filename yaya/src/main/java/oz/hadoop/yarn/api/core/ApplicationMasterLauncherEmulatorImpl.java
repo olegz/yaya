@@ -114,8 +114,7 @@ class ApplicationMasterLauncherEmulatorImpl<T> extends AbstractApplicationMaster
 
 		@Override
 		protected void build() {
-			// TODO Auto-generated method stub
-			
+			// noop for Emulator
 		}
 		
 		@Override

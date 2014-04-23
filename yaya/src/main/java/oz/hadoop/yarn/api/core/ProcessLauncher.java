@@ -37,6 +37,10 @@ abstract class ProcessLauncher {
 	
 	protected final CountDownLatch containerLivelinesBarrier;
 	
+	/**
+	 * 
+	 * @param containerLivelinesBarrier
+	 */
 	ProcessLauncher(CountDownLatch containerLivelinesBarrier){
 		this.executor = Executors.newCachedThreadPool();
 		this.containerLivelinesBarrier = containerLivelinesBarrier;

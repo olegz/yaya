@@ -20,11 +20,9 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -37,7 +35,7 @@ import org.springframework.util.StringUtils;
 import oz.hadoop.yarn.api.YayaConstants;
 import oz.hadoop.yarn.api.net.ApplicationContainerServer;
 import oz.hadoop.yarn.api.net.ContainerDelegate;
-import oz.hadoop.yarn.api.net.ShutdownAware;
+import oz.hadoop.yarn.api.net.ReplyPostProcessor;
 import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 import oz.hadoop.yarn.api.utils.PrintUtils;
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
@@ -51,6 +49,8 @@ import oz.hadoop.yarn.api.utils.ReflectionUtils;
 abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMasterLauncher<T> {
 	
 	private final Log logger = LogFactory.getLog(AbstractApplicationMasterLauncher.class);
+	
+	private final boolean finite;
 
 	protected final Map<String, Object> applicationSpecification;
 	
@@ -64,6 +64,12 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	
 	private volatile ApplicationContainerServer clientServer;
 	
+	private T launchResult;
+	
+	/**
+	 * 
+	 * @param applicationSpecification
+	 */
 	@SuppressWarnings("unchecked")
 	AbstractApplicationMasterLauncher(Map<String, Object> applicationSpecification){
 		this.applicationSpecification = applicationSpecification;
@@ -73,6 +79,8 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		// we only need YarnConfig locally to launch Application Master. No need to pass it along as application arguments.
 		this.yarnConfig  = (YarnConfiguration) this.applicationSpecification.remove(YayaConstants.YARN_CONFIG);
 		this.executor = Executors.newScheduledThreadPool(2);
+		this.finite = (StringUtils.hasText(this.applicationContainerSpecification.getString(YayaConstants.COMMAND)) ||
+				this.applicationContainerSpecification.getString(YayaConstants.CONTAINER_ARG) != null) ? true : false;
 	}
 	
 	/**
@@ -80,14 +88,8 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	 */
 	@Override
 	public boolean isRunning() {
-		boolean running = false;
-		if (this.clientServer != null){
-			int connectedDelegates = this.clientServer.getContainerDelegates().length;
-			if (connectedDelegates > 0){
-				running = true;
-			}
-		}
-		return running;
+		// clientServer will be before call to launch
+		return this.clientServer != null && this.clientServer.liveContainers() > 0;
 	}
 	
 	/**
@@ -95,11 +97,8 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	 */
 	@Override
 	public int liveContainers(){
-		int liveContainers = 0;
-		if (this.clientServer != null){
-			liveContainers = this.clientServer.getContainerDelegates().length;
-		}
-		return liveContainers;
+		// clientServer will be before call to launch
+		return this.clientServer == null ? 0 : this.clientServer.liveContainers();
 	}
 	
 	/**
@@ -114,10 +113,7 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 
 		int applicationContainerCount = this.applicationContainerSpecification.getInt(YayaConstants.CONTAINER_COUNT);
 		
-		boolean reusableContainer = (StringUtils.hasText(this.applicationContainerSpecification.getString(YayaConstants.COMMAND)) ||
-				this.applicationContainerSpecification.getString(YayaConstants.CONTAINER_ARG) != null) ? false : true;
-		
-		this.initApplicationContainerServer(applicationContainerCount);
+		this.initApplicationContainerServer(applicationContainerCount, finite);
 		
 		ApplicationId launchedApplication = this.doLaunch(applicationContainerCount);
 		if (logger.isInfoEnabled()){
@@ -134,8 +130,8 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		if (logger.isInfoEnabled()){
 			logger.info("Established connection with all " + applicationContainerCount + " Application Containers");
 		}
-		T launchResult = this.buildLaunchResult(reusableContainer);
-		return launchResult;
+		this.launchResult = this.buildLaunchResult(finite);
+		return this.launchResult;
 	}
 	
 	/**
@@ -143,35 +139,52 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	 */
 	@Override
 	public void shutDown() {
-		if (this.isRunning()){
-			this.close();
+		if (this.finite){
+			if (this.isRunning()){
+				this.close(false);
+			}
+		}
+		else {
+			this.close(false);
 		}
 	}
 	
 	/**
 	 * 
-	 * @param reusableContainer
+	 */
+	@Override
+	public void terminate() {
+		this.close(true);
+	}
+	
+	/**
+	 * 
+	 * @param finite
 	 * @return
 	 */
 	@SuppressWarnings("unchecked")
-	private T buildLaunchResult(boolean reusableContainer){
+	private T buildLaunchResult(boolean finite){
 		T returnValue = null;
 
-		if (reusableContainer){
-			returnValue = (T) this.clientServer.getContainerDelegates();
+		if (!finite){
+			DataProcessorImpl dp = new DataProcessorImpl(this.clientServer);
+			return (T) dp;
 		}
 		else {
 			final ContainerDelegate[] containerDelegates = clientServer.getContainerDelegates();
 			if (logger.isDebugEnabled()){
 				logger.debug("Sending start to Application Containers");
 			}
-			final List<Future<ByteBuffer>> results = new ArrayList<>();
+			final CountDownLatch completionLatch = new CountDownLatch(containerDelegates.length);
 			for (ContainerDelegate containerDelegate : containerDelegates) {
-				results.add(containerDelegate.exchange(ByteBuffer.wrap("START".getBytes())));
+				containerDelegate.process(ByteBuffer.wrap("START".getBytes()), new ReplyPostProcessor() {	
+					@Override
+					public void doProcess(ByteBuffer reply) {
+						completionLatch.countDown();
+					}
+				});
 			}
-	
-			this.executor.execute(new ApplicationContainerExecutionMonitor(results));
-			
+			this.executor.execute(new ApplicationContainerExecutionMonitor(completionLatch));
 			returnValue = null;
 		}
 		return returnValue;
@@ -180,31 +193,30 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	/**
 	 * 
 	 */
-	private void initApplicationContainerServer(int applicationContainerCount){
-		this.clientServer = this.buildClientServer(applicationContainerCount);	
+	private void initApplicationContainerServer(int applicationContainerCount, boolean finite){
+		this.clientServer = this.buildClientServer(applicationContainerCount, finite);	
 		InetSocketAddress address = clientServer.start();
 		this.applicationSpecification.put(YayaConstants.CLIENT_HOST, address.getHostName());
 		this.applicationSpecification.put(YayaConstants.CLIENT_PORT, address.getPort());
 	}
 	
-	private void close(){
+	/**
+	 * 
+	 * @param force
+	 */
+	private void close(boolean force) {
+		if (this.launchResult instanceof DataProcessorImpl){
+			((DataProcessorImpl)this.launchResult).stop();
+		}
 		logger.debug("Shutting down ApplicationContainerServer");
-		this.clientServer.stop();
+		this.clientServer.stop(force);
 		logger.debug("Shutting down executor");
-		this.executor.shutdownNow();
+		this.executor.shutdown();
 		ApplicationId shutDownApplication = this.doShutDown();
 		if (logger.isInfoEnabled()){
 			logger.info("Application Master for Application: " + this.applicationName 
 					+ " with ApplicationId: " + shutDownApplication + " was shut down.");
 		}
-	}
-	
-	/**
-	 * 
-	 */
-	@Override
-	public void preShutdown(){
-		// noop
 	}
 	
 	/**
@@ -221,12 +233,12 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	/**
 	 * 
 	 */
-	private ApplicationContainerServer buildClientServer(int expectedClientContainerCount){
+	private ApplicationContainerServer buildClientServer(int expectedClientContainerCount, boolean finite){
 		try {
 			InetSocketAddress address = this.buildSocketAddress();
 			Constructor<ApplicationContainerServer> clCtr = ReflectionUtils.getInvocableConstructor(
-					ApplicationContainerServer.class.getPackage().getName() + ".ApplicationContainerServerImpl", InetSocketAddress.class, int.class, ShutdownAware.class);
-			ApplicationContainerServer cs = clCtr.newInstance(address, expectedClientContainerCount, this);
+					ApplicationContainerServer.class.getPackage().getName() + ".ApplicationContainerServerImpl", InetSocketAddress.class, int.class, boolean.class);
+			ApplicationContainerServer cs = clCtr.newInstance(address, expectedClientContainerCount, finite);
 			return cs;
 		} 
 		catch (Exception e) {
@@ -251,29 +263,29 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	 * 
 	 */
 	private class ApplicationContainerExecutionMonitor implements Runnable {
-		private final List<Future<ByteBuffer>> results;
+		private final CountDownLatch completionLatch;
 		
-		private volatile int completedContainers;
-		
-		ApplicationContainerExecutionMonitor(List<Future<ByteBuffer>> results){
-			this.results = results;
+		ApplicationContainerExecutionMonitor(CountDownLatch completionLatch){
+			this.completionLatch = completionLatch;
 		}
 
 		@Override
 		public void run() {
 			logger.trace("Waiting for Application Container completion");
-			for (Future<ByteBuffer> future : results) {
-				if (future.isDone()){
-					logger.debug("Completed contaiers: " + completedContainers);
-					this.completedContainers++;
-					future.cancel(false);
-				}
+			boolean completed = false;
+			try {
+				completed = this.completionLatch.await(5, TimeUnit.MILLISECONDS);
+			} 
+			catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				logger.warn("Interrupted while waiting for Application Containers to finish", e);
+				completed = true;
 			}
-			if (this.completedContainers < this.results.size()){
-				AbstractApplicationMasterLauncher.this.executor.schedule(this, 100, TimeUnit.MILLISECONDS);
+			if (completed){
+				close(false);
 			}
 			else {
-				close();
+				AbstractApplicationMasterLauncher.this.executor.schedule(this, 10, TimeUnit.MILLISECONDS);
 			}
 		}
 	}

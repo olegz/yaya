@@ -15,7 +15,6 @@
  */
 package oz.hadoop.yarn.api.core;
 
-import oz.hadoop.yarn.api.net.ShutdownAware;
 
 
 /**
@@ -24,13 +23,33 @@ import oz.hadoop.yarn.api.net.ShutdownAware;
  * @author Oleg Zhurakousky
  *
  */
-interface ApplicationMasterLauncher<T> extends ShutdownAware {
+interface ApplicationMasterLauncher<T> {
 
+	/**
+	 * 
+	 * @return
+	 */
 	T launch();
 	
+	/**
+	 * 
+	 */
 	void shutDown();
 	
+	/**
+	 * 
+	 */
+	void terminate();
+	
+	/**
+	 * 
+	 * @return
+	 */
 	boolean isRunning();
 	
+	/**
+	 * 
+	 * @return
+	 */
 	int liveContainers();
 }
