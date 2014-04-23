@@ -52,6 +52,15 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 					maxAttempts(2).
 					build("InteractableYarnApplicationContainersEmulatorDemo");
 
+		/*
+		 * DataProcessor essentially is a proxy over all Application Containers running in YARN.
+		 * It is aware of which Application Containers are available and will 
+		 * delegate its process(..) invocation to the first available Application Container.
+		 * So essentially DataProcessor is a gateway to the YARN Distributed Computing Grid.
+		 * 
+		 * Additionally you can register oz.hadoop.yarn.api.DataProcessorReplyListener with 
+		 * DataProcessor if interested in receiving a reply from the distributed process.
+		 */
 		final DataProcessor dataProcessor = yarnApplication.launch();
 		executor.execute(new Runnable() {
 			@Override
