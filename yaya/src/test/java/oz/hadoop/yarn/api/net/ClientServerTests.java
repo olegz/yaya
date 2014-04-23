@@ -43,14 +43,12 @@ public class ClientServerTests {
 	public void testMoreThenExpectedClients() throws Exception {
 		for (int y = 0; y < 10; y++) {
 			int expectedClients = 2;
-			InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-			ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false);
+			ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(expectedClients, false);
 			InetSocketAddress address = clientServer.start();
 			
 			for (int i = 0; i < 40; i++) {
 				ApplicationContainerClientImpl containerClientOne = new ApplicationContainerClientImpl(address, new EchoMessageHandler());
 				containerClientOne.start();
-				System.out.println("I" + i);
 			}
 			
 			clientServer.awaitAllClients(2);
@@ -94,10 +92,9 @@ public class ClientServerTests {
 		clientServer.stop(false);
 	}
 
-	@Test//(timeout=5000)
+	@Test(timeout=5000)
 	public void testServerWithMixedMessages() throws Exception {
-		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, 1, false);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(1, false);
 		InetSocketAddress address = clientServer.start();
 		StringBuffer buffer = new StringBuffer();
 		String s = "Hello World";

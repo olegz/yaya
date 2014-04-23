@@ -16,7 +16,6 @@
 package oz.hadoop.yarn.api.core;
 
 import java.util.Map;
-import java.util.concurrent.locks.LockSupport;
 
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
@@ -98,21 +97,10 @@ class ApplicationImpl<T> implements YarnApplication<T> {
 	@Override
 	public void shutDown() {
 		this.yarnApplicationMasterLauncher.shutDown();
-		this.waitToStop();
 	}
 	
 	@Override
 	public void terminate() {
 		this.yarnApplicationMasterLauncher.terminate();
-		this.waitToStop();
-	}
-	
-	/**
-	 * 
-	 */
-	private void waitToStop(){
-		while (this.isRunning()){
-			LockSupport.parkNanos(1000);
-		}
 	}
 }

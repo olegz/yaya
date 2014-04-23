@@ -104,22 +104,21 @@ abstract class AbstractSocketHandler implements SocketHandler {
 				
 				this.running = true;
 				this.executor.execute(this.listenerTask);
-				try {
-					if (logger.isDebugEnabled()){
-						logger.debug("Started listener for " + AbstractSocketHandler.this.getClass().getSimpleName());
-					}	
-					serverAddress = (InetSocketAddress) this.channel.getLocalAddress();
-				} 
-				catch (Exception e) {
-					this.running = false;
-					throw new IllegalStateException("Failed to start", e);
-				}
+				if (logger.isDebugEnabled()){
+					logger.debug("Started listener for " + AbstractSocketHandler.this.getClass().getSimpleName());
+				}	
+				serverAddress = (InetSocketAddress) this.channel.getLocalAddress();
 			}
-			return serverAddress;
 		} 
+		catch (ClosedChannelException cce){
+			this.running = false;
+			logger.warn("Failed to gconnect to the Server becouse it rejected the connection. Most likely reason: Illegal/Unexpected" +
+					"client was trying to join");
+		}
 		catch (Exception e) {
 			throw new IllegalStateException("Failed to start " + this.getClass().getName(), e);
 		}
+		return serverAddress;
 	}
 	
 	/**

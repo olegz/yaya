@@ -127,7 +127,15 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	}
 	
 	/**
+	 * Will stop this server, closing all the remaining connection to Application Container 
+	 * clients waiting if necessary. 
+	 * Closing such connection will force Application Container clients to stop essentially 
+	 * stopping and exiting Application Containers, thus stopping the entire application.
 	 * 
+	 * @param force
+	 * 		boolean flag indicating if this application should be terminated immediately or 
+	 * 		should it shut down gracefully allowing currently running Application Container 
+	 * 		processes to finish.
 	 */
 	@Override
 	public void stop(boolean force){

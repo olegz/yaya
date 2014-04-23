@@ -31,7 +31,7 @@ import oz.hadoop.yarn.api.YarnApplication;
  * It is created and returned in a form of an array during the invocation of {@link YarnApplication#launch()}
  * method essentially signifying that the Yarn application have been deployed successfully 
  * and interaction with Application Containers through simple messaging 
- * (see {@link ContainerDelegateImpl#exchange(ByteBuffer)}) method can commence.
+ * method can commence (see {@link #process(ByteBuffer, ReplyPostProcessor)).
  * 
  * @author Oleg Zhurakousky
  */

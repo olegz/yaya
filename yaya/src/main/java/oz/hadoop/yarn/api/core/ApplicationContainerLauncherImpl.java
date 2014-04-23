@@ -110,10 +110,11 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 		if (logger.isInfoEnabled()){
 			logger.info("Deleted application jars: " + dst.toString());
 		}
-		logger.info("Unregistering the Application Master");
+		
 		FinalApplicationStatus status = (this.error != null) ? FinalApplicationStatus.FAILED : FinalApplicationStatus.SUCCEEDED;
 		//this.resourceManagerClient.getClusterNodeCount()
 		//this.resourceManagerClient.getFailureCause()
+		logger.info("Unregistering the Application Master");
 		this.resourceManagerClient.unregisterApplicationMaster(status, this.generateExitMessage(status) , null);
 		
 		logger.info("Shutting down Node Manager Client");

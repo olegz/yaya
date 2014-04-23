@@ -16,6 +16,7 @@
 package oz.hadoop.yarn.api;
 
 import java.util.Map;
+import java.util.concurrent.RejectedExecutionException;
 
 
 /**
@@ -63,7 +64,11 @@ public interface YarnApplication<T> {
 	 * while not accepting any new tasks. However, finite application will exit on its own 
 	 * upon completion of all tasks. In this case subsequent calls to this method will have 
 	 * no effect.<br>
-	 * Application can also be terminated (killed) via {@link #terminate()} method.
+	 * Application can also be terminated (killed) via {@link #terminate()} method.<br>
+	 * NOTE: It is normal to see {@link RejectedExecutionException} in the logs when invoking this 
+	 * method especially in the cases where {@link DataProcessor}'s process(..) method invoked in a 
+	 * separate thread. It simply means that new processes are rejected while framework let's 
+	 * currently running processes finish.
 	 */
 	void shutDown();
 	

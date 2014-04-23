@@ -108,10 +108,16 @@ class DataProcessorImpl implements DataProcessor {
 		if (this.active){
 			final int index = this.getIndexOfAvailableDelegate(ipRegexFilter);
 			final ContainerDelegate delegate = this.containerDelegates[index];
+			if (logger.isDebugEnabled()){
+				logger.debug("Selected ContainerDelegate for process invocation: " + delegate);
+			}
 			
 			ReplyPostProcessor replyPostProcessor = new ReplyPostProcessor() {
 				@Override
 				public void doProcess(ByteBuffer reply) {
+					/*
+					 * This is release logic which will make ContainerDelegate available again.
+					 */
 					if (!DataProcessorImpl.this.busyDelegatesFlags[index].compareAndSet(true, false)) {
 						logger.error("Failed to release 'busyDelegatesFlag'. Should never happen. Concurrency issue; if you see this message, REPORT!");
 						DataProcessorImpl.this.stop();

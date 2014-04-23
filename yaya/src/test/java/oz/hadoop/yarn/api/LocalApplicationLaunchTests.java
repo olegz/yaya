@@ -37,9 +37,39 @@ public class LocalApplicationLaunchTests {
 	
 	private static AtomicInteger flag = new AtomicInteger();
 	
+	@Test(timeout=10000)
+	public void validateWithReplyListener() throws Exception {
+		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class).
+												containerCount(2).
+												memory(512).withApplicationMaster().
+													maxAttempts(2).
+													priority(2).
+													build("sample-yarn-application");
+		
+		DataProcessor dataProcessor = yarnApplication.launch();
+		final AtomicInteger repliesCounter = new AtomicInteger();
+		dataProcessor.registerReplyListener(new DataProcessorReplyListener() {
+			@Override
+			public void onReply(ByteBuffer replyData) {
+				repliesCounter.incrementAndGet();
+			}
+		});
+		assertEquals(2, dataProcessor.containers());
+		
+		for (int i = 0; i < 2; i++) {
+			for (int j = 0; j < dataProcessor.containers(); j++) {
+				dataProcessor.process(ByteBuffer.wrap(("Hello Yarn!-" + i).getBytes()));
+			}
+		}
+		assertTrue(yarnApplication.isRunning());
+		yarnApplication.shutDown();
+		assertEquals(repliesCounter.get(), dataProcessor.completedSinceStart());
+		assertFalse(yarnApplication.isRunning());
+	}
+	
 	@Test(timeout=60000)
 	public void validateLongLivedJavaContainerLaunch() throws Exception {
-		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class).
+		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(SimpleRandomDelayContainer.class).
 												containerCount(2).
 												memory(512).withApplicationMaster().
 													maxAttempts(2).
@@ -126,7 +156,7 @@ public class LocalApplicationLaunchTests {
 	}
 	
 	@Test(timeout=20000)
-	public void validateJavaContainerLaunchImediateShutdown() throws Exception {
+	public void validateJavaContainerLaunchImmediateShutdown() throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class, ByteBuffer.wrap("Hello".getBytes())).
 												containerCount(2).
 												memory(512).withApplicationMaster().
@@ -264,11 +294,6 @@ public class LocalApplicationLaunchTests {
 	public static class SimpleEchoContainer implements ApplicationContainerProcessor {
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
-			try {
-				Thread.sleep(new Random().nextInt(10000));
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
 			return inputMessage;
 		}
 	}
