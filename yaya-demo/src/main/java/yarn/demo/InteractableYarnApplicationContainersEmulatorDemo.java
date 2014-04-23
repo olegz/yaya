@@ -22,14 +22,16 @@ import java.util.concurrent.Executors;
 
 import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 import oz.hadoop.yarn.api.DataProcessor;
+import oz.hadoop.yarn.api.DataProcessorReplyListener;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
 
 /**
  * This demo showcases long-running reusable containers you can interact with
  * by exchanging messages. This one (while trivial) demonstrates a simple YARN
- * application which echoes back the message it receives and the calling client
- * prints the echoed message.
+ * application which echoes back the message. If you want to print the reply 
+ * that was echoed back simple register {@link DataProcessorReplyListener} with
+ * {@link DataProcessor}
  * 
  * This demo does NOT require a valid YARN cluster and will run in YARN Emulator.
  * 
