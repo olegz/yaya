@@ -57,7 +57,8 @@ public class InteractableYarnApplicationContainersClusterDemo {
 					build("InteractableYarnApplicationContainersClusterDemo");
 
 		/*
-		 * DataProcessor essentially is a proxy over all Application Containers running in YARN.
+		 * DataProcessor essentially is a proxy over all Application Containers defined by this 
+		 * application and running in YARN (8 in this case).
 		 * It is aware of which Application Containers are available and will 
 		 * delegate its process(..) invocation to the first available Application Container.
 		 * So essentially DataProcessor is a gateway to the YARN Distributed Computing Grid.
