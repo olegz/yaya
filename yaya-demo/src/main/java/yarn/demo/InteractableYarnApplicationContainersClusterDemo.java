@@ -72,9 +72,9 @@ public class InteractableYarnApplicationContainersClusterDemo {
 				for (int i = 0; i < 30; i++) {
 					/*
 					 * Actual processing will be delegated to the first available (out of 8 deployed) 
-					 * remote Application Container
+					 * remote Application Containers.
 					 */
-					dataProcessor.process(ByteBuffer.wrap(("Hello Yarn Grid!" + i).getBytes()));
+					dataProcessor.process(ByteBuffer.wrap(("Hello Yarn Grid! - " + i).getBytes()));
 				}
 			}
 		});
