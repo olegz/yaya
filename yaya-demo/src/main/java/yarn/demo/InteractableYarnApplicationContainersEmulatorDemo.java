@@ -67,7 +67,11 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 			@Override
 			public void run() {
 				for (int i = 0; i < 30; i++) {
-					dataProcessor.process(ByteBuffer.wrap(("" + i).getBytes()));
+					/*
+					 * Actual processing will be delegated to the first available (out of 8 deployed) 
+					 * remote Application Container
+					 */
+					dataProcessor.process(ByteBuffer.wrap(("Hello Yarn Grid!" + i).getBytes()));
 				}
 			}
 		});
