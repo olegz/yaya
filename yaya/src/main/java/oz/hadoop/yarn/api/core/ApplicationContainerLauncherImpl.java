@@ -15,6 +15,8 @@
  */
 package oz.hadoop.yarn.api.core;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -196,7 +198,10 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 			return localResources;
 		}
 		catch (Exception e) {
-			throw new IllegalStateException("Failed to build LocalResources", e);
+			StringWriter sw = new StringWriter();
+			PrintWriter writer = new PrintWriter(sw);
+			e.printStackTrace(writer);
+			throw new IllegalStateException("Failed to build LocalResources\n " + sw.toString(), e);
 		}
 	}
 	

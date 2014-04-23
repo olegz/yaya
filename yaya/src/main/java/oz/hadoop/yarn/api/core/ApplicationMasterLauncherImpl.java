@@ -246,23 +246,28 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 			String[] cp = System.getProperty("java.class.path").split(":");
 			for (String v : cp) {
 				File f = new File(v);
-				if (f.isDirectory()) {
-					String jarFileName = YayaUtils.generateJarFileName(this.applicationName);
-					if (logger.isDebugEnabled()){
-						logger.debug("Creating JAR: " + jarFileName);
+//				if (!f.getName().contains("hadoop-")){
+					if (f.isDirectory()) {
+						String jarFileName = YayaUtils.generateJarFileName(this.applicationName);
+						if (logger.isDebugEnabled()){
+							logger.debug("Creating JAR: " + jarFileName);
+						}
+						File jarFile = JarUtils.toJar(f, jarFileName);
+						this.addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), this.applicationId.getId(), localResources);
+						try {
+							new File(jarFile.getAbsolutePath()).delete(); // will delete the generated JAR file
+						}
+						catch (Exception e) {
+							logger.warn("Failed to delete generated JAR file: " + jarFile.getAbsolutePath(), e);
+						}
 					}
-					File jarFile = JarUtils.toJar(f, jarFileName);
-					this.addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), this.applicationId.getId(), localResources);
-					try {
-						new File(jarFile.getAbsolutePath()).delete(); // will delete the generated JAR file
+					else {
+						this.addToLocalResources(fs, f.getAbsolutePath(), f.getName(), this.applicationId.getId(), localResources);
 					}
-					catch (Exception e) {
-						logger.warn("Failed to delete generated JAR file: " + jarFile.getAbsolutePath(), e);
-					}
-				}
-				else {
-					this.addToLocalResources(fs, f.getAbsolutePath(), f.getName(), this.applicationId.getId(), localResources);
-				}
+//				}
+//				else {
+//					System.out.println("SKIPPING: " + f.getName());
+//				}
 			}
 		}
 	    catch (Exception e) {
@@ -279,7 +284,11 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 		Path dst = new Path(fs.getHomeDirectory(), suffix);
 
 		try {
-			fs.copyFromLocalFile(new Path(fileSrcPath), dst);
+			Path sourcePath = new Path(fileSrcPath);
+			if (logger.isDebugEnabled()){
+				logger.debug("Copying '" + sourcePath + "' to " + dst);
+			}
+			fs.copyFromLocalFile(sourcePath, dst);
 			FileStatus scFileStatus = fs.getFileStatus(dst);
 			LocalResource scRsrc = LocalResource.newInstance(ConverterUtils.getYarnUrlFromURI(dst.toUri()),
 					LocalResourceType.FILE, LocalResourceVisibility.APPLICATION, scFileStatus.getLen(), scFileStatus.getModificationTime());
