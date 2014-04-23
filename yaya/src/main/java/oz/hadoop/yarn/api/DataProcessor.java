@@ -18,9 +18,10 @@ package oz.hadoop.yarn.api;
 import java.nio.ByteBuffer;
 
 /**
- * Strategy to represent distributed Application Containers of YARN application.
+ * Strategy to represent launched Application Containers of the YARN application assembled
+ * by {@link YarnAssembly}.
  * It is created and returned by calling {@link YarnApplication#launch()} method
- * only in he cases of long-running reusable YARN applications created by {@link YarnAssembly}.
+ * for the cases where {@link YarnAssembly} assembled long-running reusable YARN application.
  * 
  * @author Oleg Zhurakousky
  *
@@ -38,7 +39,7 @@ public interface DataProcessor {
 	
 	/**
 	 * Allows you to submit data as {@link ByteBuffer} to a first available 
-	 * Application Container that matches the regex IP filter 
+	 * Application Container that matches the IP filter described via regular expression.
 	 * 
 	 * @param data
 	 * 		data to process

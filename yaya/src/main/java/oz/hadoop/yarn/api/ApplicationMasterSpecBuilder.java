@@ -23,6 +23,9 @@ import oz.hadoop.yarn.api.YarnAssembly.MWithQueueVcPrMem;
 import oz.hadoop.yarn.api.YarnAssembly.MWithVcMaPrMem;
 
 /**
+ * While a public interface, its exposed mainly for the convenience to {@link YarnAssembly}.
+ * User's would typically not interrupt with it directly.
+ * 
  * @author Oleg Zhurakousky
  *
  */

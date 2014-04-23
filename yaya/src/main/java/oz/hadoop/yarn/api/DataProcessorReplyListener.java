@@ -18,10 +18,20 @@ package oz.hadoop.yarn.api;
 import java.nio.ByteBuffer;
 
 /**
+ * Strategy for implementing listeners which could be registered with {@link DataProcessor}
+ * to be invoked every time an Application Container task running as command or 
+ * {@link ApplicationContainerProcessor} produces a reply.
+ * 
  * @author Oleg Zhurakousky
  *
  */
 public interface DataProcessorReplyListener {
 
+	/**
+	 * Callback method to receive and process a reply produced by a task running as
+	 * command or {@link ApplicationContainerProcessor}
+	 * 
+	 * @param replyData
+	 */
 	void onReply(ByteBuffer replyData);
 }

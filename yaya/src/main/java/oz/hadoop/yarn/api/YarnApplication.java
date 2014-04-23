@@ -20,7 +20,7 @@ import java.util.Map;
 
 /**
  * Strategy representing an assembled YARN Application.
- * It exposes several life-cycle method to allow you to perform launch/terminate as
+ * It exposes several life-cycle method to allow you to perform launch/shutdown as
  * well as inquiries on the state of the application.
  * 
  * @author Oleg Zhurakousky
@@ -58,18 +58,22 @@ public interface YarnApplication<T> {
 	T launch();
 	
 	/**
-	 * Will attempt shut down this application gracefully, allowing task currently executing 
-	 * by Application Containers to finish while not accepting any new tasks. However, finite 
-	 * application will exit on its own upon completion of all tasks. In this case subsequent calls 
-	 * to this method will have no effect.
+	 * Will attempt shut down this application gracefully, allowing Application Container
+	 * tasks running as commands or java {@link ApplicationContainerProcessor}s to finish
+	 * while not accepting any new tasks. However, finite application will exit on its own 
+	 * upon completion of all tasks. In this case subsequent calls to this method will have 
+	 * no effect.<br>
+	 * Application can also be terminated (killed) via {@link #terminate()} method.
 	 */
 	void shutDown();
 	
 	/**
-	 * Will terminate (kill) this application.
+	 * Will terminate (kill) this application.<br>
+	 * NOTE: This method will interrupt all currently running Application Container
+	 * tasks running as commands or java {@link ApplicationContainerProcessor}s.
+	 * For graceful shutdown see {@link #shutDown()} method.
 	 */
 	void terminate();
-	
 	
 	/**
 	 * Will return 'true' if application is still running and 'false' if its finished.
@@ -82,9 +86,9 @@ public interface YarnApplication<T> {
 	boolean isRunning();
 	
 	/**
-	 * Will return the count of currently running Application Containers. 
+	 * Will return the count of currently running (alive) Application Containers. 
 	 * Typical use of this method is purely informational/debugging since
-	 * it essentially provides you with additional information about related to 
+	 * it essentially provides you with additional information related to 
 	 * the {@link #isRunning()} state of your application. 
 	 * 
 	 * @return
@@ -92,7 +96,7 @@ public interface YarnApplication<T> {
 	int liveContainers();
 	
 	/**
-	 * Returns an immutable {@link Map} of this application. 
+	 * Returns an immutable {@link Map} of the application specification.
 	 * Mainly used for purely informational/debugging purposes.
 	 * 
 	 * @return

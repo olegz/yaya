@@ -17,11 +17,8 @@ package oz.hadoop.yarn.api;
 
 import java.nio.ByteBuffer;
 
-import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
-
 /**
  * Strategy for implementing java-based Applications Containers.
- * See {@link #launch(PrimitiveImmutableTypeMap)} method.
  *
  * @author Oleg Zhurakousky
  *
@@ -29,15 +26,11 @@ import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 public interface ApplicationContainerProcessor {
 
 	/**
-	 * This method takes {@link PrimitiveImmutableTypeMap} which contains
-	 * container arguments that were set when creating
-	 * {@link JavaApplicationContainerSpec#addContainerArgument(String, java.util.List)} or
-	 * {@link JavaApplicationContainerSpec#addContainerArgument(String, String)}.
-	 * NOTE: Every argument value in {@link PrimitiveImmutableTypeMap} is either of type
-	 * String or {@link List<String>} or {@link Map<String, String>} or {@link Map<String, List<String>>}
-	 * or {@link Map<String, Map<String, String>} etc.
-	 *
-	 * @param arguments
+	 * This method takes {@link ByteBuffer} containing data to be processed by an Application Container.
+	 * 
+	 * @param input
+	 * 		input data
+	 * @return
 	 */
 	public ByteBuffer process(ByteBuffer input);
 }

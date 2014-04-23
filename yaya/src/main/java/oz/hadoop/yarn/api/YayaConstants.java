@@ -16,6 +16,8 @@
 package oz.hadoop.yarn.api;
 
 /**
+ * Collection of constant values used by the framework.
+ * 
  * @author Oleg Zhurakousky
  *
  */
@@ -62,5 +64,4 @@ public interface YayaConstants {
 	String COMMAND = "COMMAND";
 	
 	String JAVA_COMMAND = "JAVA_COMMAND";
-
 }
