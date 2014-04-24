@@ -246,28 +246,23 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 			String[] cp = System.getProperty("java.class.path").split(":");
 			for (String v : cp) {
 				File f = new File(v);
-//				if (!f.getName().contains("hadoop-")){
-					if (f.isDirectory()) {
-						String jarFileName = YayaUtils.generateJarFileName(this.applicationName);
-						if (logger.isDebugEnabled()){
-							logger.debug("Creating JAR: " + jarFileName);
-						}
-						File jarFile = JarUtils.toJar(f, jarFileName);
-						this.addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), this.applicationId.getId(), localResources);
-						try {
-							new File(jarFile.getAbsolutePath()).delete(); // will delete the generated JAR file
-						}
-						catch (Exception e) {
-							logger.warn("Failed to delete generated JAR file: " + jarFile.getAbsolutePath(), e);
-						}
+				if (f.isDirectory()) {
+					String jarFileName = YayaUtils.generateJarFileName(this.applicationName);
+					if (logger.isDebugEnabled()){
+						logger.debug("Creating JAR: " + jarFileName);
 					}
-					else {
-						this.addToLocalResources(fs, f.getAbsolutePath(), f.getName(), this.applicationId.getId(), localResources);
+					File jarFile = JarUtils.toJar(f, jarFileName);
+					this.addToLocalResources(fs, jarFile.getAbsolutePath(),jarFile.getName(), this.applicationId.getId(), localResources);
+					try {
+						new File(jarFile.getAbsolutePath()).delete(); // will delete the generated JAR file
 					}
-//				}
-//				else {
-//					System.out.println("SKIPPING: " + f.getName());
-//				}
+					catch (Exception e) {
+						logger.warn("Failed to delete generated JAR file: " + jarFile.getAbsolutePath(), e);
+					}
+				}
+				else {
+					this.addToLocalResources(fs, f.getAbsolutePath(), f.getName(), this.applicationId.getId(), localResources);
+				}
 			}
 		}
 	    catch (Exception e) {

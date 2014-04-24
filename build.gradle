@@ -23,7 +23,6 @@ subprojects { subproject ->
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
 	apply plugin: 'maven'
-	apply plugin:'application'
 
 	ext {
 		junitVersion = '4.8.2'
@@ -135,7 +134,6 @@ project('yaya') {
 
 project('yaya-demo') {
 	description = 'Demo of YARN API'
-	mainClassName="yarn.demo.ClusterDemo"
 	dependencies {
 		compile project(":yaya")
 		//compile project(":yarn-test-cluster")
