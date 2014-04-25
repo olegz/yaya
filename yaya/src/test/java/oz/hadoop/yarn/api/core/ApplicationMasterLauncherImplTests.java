@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.Test;
+import org.springframework.core.io.ClassPathResource;
 
 import oz.hadoop.yarn.api.YayaConstants;
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
@@ -53,6 +54,65 @@ public class ApplicationMasterLauncherImplTests {
 					assertFalse(f.getName(), excluded);
 				}
 			}
+		}
+	}
+	
+	@Test
+	public void validateWithMissingClasspathFilters() throws Exception {
+		ClassPathResource res = new ClassPathResource("classpath.filters");
+		File cpFilterFile = res.getFile();
+		File backup = new File("classpath.filters.old");
+		try {
+			cpFilterFile.renameTo(backup);
+			Map<String, Object> applicationSpecification = new HashMap<>();
+			applicationSpecification.put(YayaConstants.CONTAINER_SPEC, new HashMap<>());
+			ApplicationMasterLauncherImpl<Void> launcher = new ApplicationMasterLauncherImpl<>(applicationSpecification);
+			
+			Method excludedMethod = ReflectionUtils.getMethodAndMakeAccessible(ApplicationMasterLauncherImpl.class, "excluded", String.class);
+			String[] cp = System.getProperty("java.class.path").split(":");
+			for (String v : cp) {
+				File f = new File(v);
+				if (!f.isDirectory()){
+					boolean excluded = (boolean) excludedMethod.invoke(launcher, f.getName());
+					assertFalse(f.getName(), excluded);
+				}
+			}
+		} 
+		finally {
+			backup.renameTo(cpFilterFile);
+		}
+	}
+	
+	@Test
+	public void validateWithEmptyClasspathFilters() throws Exception {
+		ClassPathResource res = new ClassPathResource("classpath.filters");
+		File cpFilterFile = res.getFile();
+		File parentFile = cpFilterFile.getParentFile();
+		File backup = new File("classpath.filters.old");
+		try {
+			cpFilterFile.renameTo(backup);
+			File file = new File(parentFile, "classpath.filters");
+			file.createNewFile();
+			Map<String, Object> applicationSpecification = new HashMap<>();
+			applicationSpecification.put(YayaConstants.CONTAINER_SPEC, new HashMap<>());
+			ApplicationMasterLauncherImpl<Void> launcher = new ApplicationMasterLauncherImpl<>(applicationSpecification);
+			
+			Method excludedMethod = ReflectionUtils.getMethodAndMakeAccessible(ApplicationMasterLauncherImpl.class, "excluded", String.class);
+			String[] cp = System.getProperty("java.class.path").split(":");
+			for (String v : cp) {
+				File f = new File(v);
+				if (!f.isDirectory()){
+					boolean excluded = (boolean) excludedMethod.invoke(launcher, f.getName());
+					assertFalse(f.getName(), excluded);
+				}
+			}
+		} 
+		finally {
+			cpFilterFile.delete();
+			File file = new File(parentFile, "classpath.filters");
+			backup.renameTo(file);
+			assertTrue(file.exists());
+			assertTrue(file.length() > 0);
 		}
 	}
 

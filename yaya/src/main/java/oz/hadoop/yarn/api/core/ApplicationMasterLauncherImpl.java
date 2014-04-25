@@ -17,6 +17,7 @@ package oz.hadoop.yarn.api.core;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -318,9 +319,6 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 	 * @return
 	 */
 	private boolean excluded(String fileName){
-		if (fileName.contains("hamcrest")){
-			System.out.println();
-		}
 		boolean excluded = false;
 		if (this.jarsExclusionPatterns != null) {
 			Iterator<Pattern> jatFilterPatternsIter = this.jarsExclusionPatterns.iterator();
@@ -347,10 +345,13 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 				this.jarsExclusionPatterns.add(pattern);
 			}
 		} 
-		catch (Exception e) {
+		catch (FileNotFoundException e) {
 			logger.warn("Failed to process classpath exclusion paterns. " +
 					"Not a fatal condition and simply means that all JARs in the classpath will be propagated " +
-					"to the cluster as part of the application launch", e);
+					"to the cluster as part of the application launch");
+		}
+		catch (Exception e){
+			throw new IllegalStateException("Failed to process classpath exclusion paterns", e);
 		}
 		finally {
 			if (reader != null){
