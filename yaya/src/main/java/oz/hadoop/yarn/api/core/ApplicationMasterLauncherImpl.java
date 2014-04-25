@@ -15,11 +15,17 @@
  */
 package oz.hadoop.yarn.api.core;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.logging.Log;
@@ -43,6 +49,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairSchedule
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.json.simple.JSONObject;
+import org.springframework.core.io.ClassPathResource;
 
 import oz.hadoop.yarn.api.YayaConstants;
 import oz.hadoop.yarn.api.utils.JarUtils;
@@ -61,6 +68,8 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 	
 	private final YarnClient yarnClient;
 	
+	private List<Pattern> jarsExclusionPatterns; 
+	
 	private ApplicationId applicationId;
 
 	/**
@@ -70,6 +79,7 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 	ApplicationMasterLauncherImpl(Map<String, Object> applicationSpecification) {
 		super(applicationSpecification);
 		this.yarnClient = YarnClient.createYarnClient();
+		this.initializeJarExclusionPatterns();
 	}
 
 	/**
@@ -261,7 +271,15 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 					}
 				}
 				else {
-					this.addToLocalResources(fs, f.getAbsolutePath(), f.getName(), this.applicationId.getId(), localResources);
+					if (!this.excluded(f.getName())){
+						this.addToLocalResources(fs, f.getAbsolutePath(), f.getName(), this.applicationId.getId(), localResources);
+					}
+					else {
+						if (logger.isDebugEnabled()){
+							logger.debug("Classpath resource " + f.getName() + " is excluded from classpath propagation. You may use" +
+									"classpath.filters file to manage which JARs to exclude from classpath propagation.");
+						}
+					}
 				}
 			}
 		}
@@ -291,6 +309,58 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 		}
 		catch (Exception e) {
 			throw new IllegalStateException("Failed to communicate with FileSystem: " + fs, e);
+		}
+	}
+	
+	/**
+	 * 
+	 * @param fileName
+	 * @return
+	 */
+	private boolean excluded(String fileName){
+		if (fileName.contains("hamcrest")){
+			System.out.println();
+		}
+		boolean excluded = false;
+		if (this.jarsExclusionPatterns != null) {
+			Iterator<Pattern> jatFilterPatternsIter = this.jarsExclusionPatterns.iterator();
+			while (jatFilterPatternsIter.hasNext() && !excluded){
+				Matcher matcher = jatFilterPatternsIter.next().matcher(fileName);
+				excluded = matcher.find();
+			}
+		}
+		return excluded;
+	}
+	
+	/**
+	 * 
+	 */
+	private void initializeJarExclusionPatterns(){
+		BufferedReader reader = null;
+		try {
+			this.jarsExclusionPatterns = new ArrayList<>();
+			ClassPathResource r = new ClassPathResource("classpath.filters");
+			reader = new BufferedReader(new FileReader(r.getFile()));
+			String line;
+			while ((line = reader.readLine()) != null){
+				Pattern pattern = Pattern.compile(line);
+				this.jarsExclusionPatterns.add(pattern);
+			}
+		} 
+		catch (Exception e) {
+			logger.warn("Failed to process classpath exclusion paterns. " +
+					"Not a fatal condition and simply means that all JARs in the classpath will be propagated " +
+					"to the cluster as part of the application launch", e);
+		}
+		finally {
+			if (reader != null){
+				try {
+					reader.close();
+				} 
+				catch (Exception e2) {
+					// ignore
+				}
+			}
 		}
 	}
 }

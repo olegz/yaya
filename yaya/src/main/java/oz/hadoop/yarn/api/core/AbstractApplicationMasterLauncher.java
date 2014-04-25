@@ -30,6 +30,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 import oz.hadoop.yarn.api.YayaConstants;
@@ -72,6 +73,7 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	 */
 	@SuppressWarnings("unchecked")
 	AbstractApplicationMasterLauncher(Map<String, Object> applicationSpecification){
+		Assert.notNull(applicationSpecification, "'applicationSpecification' must not be null");
 		this.applicationSpecification = applicationSpecification;
 		this.applicationName = (String) this.applicationSpecification.get(YayaConstants.APPLICATION_NAME);
 		this.applicationContainerSpecification = 
