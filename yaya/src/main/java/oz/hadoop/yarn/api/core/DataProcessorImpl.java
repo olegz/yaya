@@ -28,7 +28,6 @@ import org.apache.commons.logging.LogFactory;
 import org.springframework.util.StringUtils;
 
 import oz.hadoop.yarn.api.DataProcessor;
-import oz.hadoop.yarn.api.DataProcessorReplyListener;
 import oz.hadoop.yarn.api.net.ApplicationContainerServer;
 import oz.hadoop.yarn.api.net.ContainerDelegate;
 import oz.hadoop.yarn.api.net.ReplyPostProcessor;
@@ -72,14 +71,6 @@ class DataProcessorImpl implements DataProcessor {
 	 * 
 	 */
 	@Override
-	public void registerReplyListener(DataProcessorReplyListener replyListener) {
-		this.clientServer.registerReplyListener(replyListener);
-	}
-	
-	/**
-	 * 
-	 */
-	@Override
 	public long completedSinceStart() {
 		return this.completedSinceStart.get();
 	}
@@ -107,29 +98,34 @@ class DataProcessorImpl implements DataProcessor {
 	public void process(ByteBuffer data, String ipRegexFilter) {
 		if (this.active){
 			final int index = this.getIndexOfAvailableDelegate(ipRegexFilter);
-			final ContainerDelegate delegate = this.containerDelegates[index];
-			if (logger.isDebugEnabled()){
-				logger.debug("Selected ContainerDelegate for process invocation: " + delegate);
-			}
-			
-			ReplyPostProcessor replyPostProcessor = new ReplyPostProcessor() {
-				@Override
-				public void doProcess(ByteBuffer reply) {
-					/*
-					 * This is release logic which will make ContainerDelegate available again.
-					 */
-					if (!DataProcessorImpl.this.busyDelegatesFlags[index].compareAndSet(true, false)) {
-						logger.error("Failed to release 'busyDelegatesFlag'. Should never happen. Concurrency issue; if you see this message, REPORT!");
-						DataProcessorImpl.this.stop();
-						throw new IllegalStateException("Should never happen. Concurrency issue, if you see this message, REPORT!");
-					}
+			if (index >= 0){
+				final ContainerDelegate delegate = this.containerDelegates[index];
+				if (logger.isDebugEnabled()){
+					logger.debug("Selected ContainerDelegate for process invocation: " + delegate);
 				}
-			};
-			if (logger.isDebugEnabled()){
-				logger.debug("Submitting data " + data + " to the Application Container");
+				
+				ReplyPostProcessor replyPostProcessor = new ReplyPostProcessor() {
+					@Override
+					public void doProcess(ByteBuffer reply) {
+						/*
+						 * This is release logic which will make ContainerDelegate available again.
+						 */
+						if (!DataProcessorImpl.this.busyDelegatesFlags[index].compareAndSet(true, false)) {
+							logger.error("Failed to release 'busyDelegatesFlag'. Should never happen. Concurrency issue; if you see this message, REPORT!");
+							DataProcessorImpl.this.stop();
+							throw new IllegalStateException("Should never happen. Concurrency issue, if you see this message, REPORT!");
+						}
+					}
+				};
+				if (logger.isDebugEnabled()){
+					logger.debug("Submitting data " + data + " to the Application Container");
+				}
+				delegate.process(data, replyPostProcessor);
+				this.completedSinceStart.getAndIncrement();
 			}
-			delegate.process(data, replyPostProcessor);
-			this.completedSinceStart.getAndIncrement();
+			else {
+				logger.debug("No longer active");
+			}
 		}
 		else {
 			logger.warn("Rejecting submission due to the shutdown. Completed processes: " + this.completedSinceStart.get());
@@ -152,7 +148,7 @@ class DataProcessorImpl implements DataProcessor {
 	private int getIndexOfAvailableDelegate(String ipRegexFilter){
 		int index = -1;
 		boolean found = false;
-		while (!found){
+		while (!found && this.active){
 			for (int i = 0; i < this.busyDelegatesFlags.length && !found; i++) {
 				found = this.busyDelegatesFlags[i].compareAndSet(false, true);
 				if (found){

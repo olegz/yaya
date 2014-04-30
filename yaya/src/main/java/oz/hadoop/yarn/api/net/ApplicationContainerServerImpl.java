@@ -22,10 +22,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -37,7 +35,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.util.Assert;
 
-import oz.hadoop.yarn.api.DataProcessorReplyListener;
+import oz.hadoop.yarn.api.ContainerReplyListener;
+import oz.hadoop.yarn.api.utils.ByteBufferUtils;
 
 /**
  * @author Oleg Zhurakousky
@@ -53,7 +52,7 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	
 	private final int expectedClientContainers;
 	
-	private volatile DataProcessorReplyListener replyListener;
+	private volatile ContainerReplyListener replyListener;
 	
 	private final Map<SelectionKey, ContainerDelegate> containerDelegates;
 	
@@ -73,8 +72,8 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 * @param finite
 	 * 			whether the YARN application using finite or reusable Application Containers
 	 */
-	public ApplicationContainerServerImpl(int expectedClientContainers, boolean finite){
-		this(getDefaultAddress(), expectedClientContainers, finite);
+	public ApplicationContainerServerImpl(int expectedClientContainers, boolean finite, Runnable onDisconnectProcess){
+		this(getDefaultAddress(), expectedClientContainers, finite, onDisconnectProcess);
 	}
 	
 	/**
@@ -90,8 +89,8 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 * @param finite
 	 * 			whether the YARN application using finite or reusable Application Containers
 	 */
-	public ApplicationContainerServerImpl(InetSocketAddress address, int expectedClientContainers, boolean finite) {
-		super(address, true);
+	public ApplicationContainerServerImpl(InetSocketAddress address, int expectedClientContainers, boolean finite, Runnable onDisconnectTask) {
+		super(address, true, onDisconnectTask);
 		Assert.isTrue(expectedClientContainers > 0, "'expectedClientContainers' must be > 0");
 		this.expectedClientContainers = expectedClientContainers;
 		this.replyCallbackMap = new ConcurrentHashMap<SelectionKey, ReplyPostProcessor>();
@@ -108,7 +107,6 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	public boolean awaitAllClients(long timeOutInSeconds) {
 		try {
 			boolean connected = this.expectedClientContainersMonitor.await(timeOutInSeconds, TimeUnit.SECONDS);
-			this.buildContainerDelegates();
 			return connected;
 		} 
 		catch (InterruptedException e) {
@@ -138,45 +136,43 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 * 		processes to finish.
 	 */
 	@Override
-	public void stop(boolean force){
-		boolean working = true;
-		while (working){
-			working = this.containerDelegates.size() > 0;
-			int counter = 0;
-			int totalSize = this.containerDelegates.size();
-			Iterator<SelectionKey> containerSelectionKeys = this.containerDelegates.keySet().iterator();
+	void doStop(boolean force) {
+		// Need to make a copy so we can remove entries without affecting the global map so it could be cleaned through normal disconnect procedure
+		Map<SelectionKey, ContainerDelegate> cDelegates = new HashMap<>(this.containerDelegates);
+		boolean working = cDelegates.size() > 0;
+		while (working) {
+			Iterator<SelectionKey> containerSelectionKeys = cDelegates.keySet().iterator();
 			while (containerSelectionKeys.hasNext()){
 				SelectionKey selectionKey = containerSelectionKeys.next();
-				ContainerDelegate containerDelegate = this.containerDelegates.get(selectionKey);
+				ContainerDelegate containerDelegate = cDelegates.get(selectionKey);
+				containerDelegate.suspend();
 				if (!force){
 					if (containerDelegate.available()){
-						counter++;
-						this.stopContainer(selectionKey, containerSelectionKeys);
+						containerSelectionKeys.remove();
 					}
 				}
 				else {
-					counter++;
-					this.stopContainer(selectionKey, containerSelectionKeys);
-				}
-				if (counter == totalSize){
-					working = false;
+					containerSelectionKeys.remove();
 				}
 			}
-			if (working && this.containerDelegates.size() > 0){
+			working = cDelegates.size() > 0;
+			if (working){
 				if (logger.isTraceEnabled()){
-					logger.trace("Waiting for remaining " + this.containerDelegates.size() + " containers to finish");
+					logger.trace("Waiting for remaining " + cDelegates.size() + " containers to finish");
 				}
 				LockSupport.parkNanos(10000000);
 			}
+			else {
+				this.containerDelegates.clear();
+			}
 		}
-		super.stop(force);
 	}
 	
 	/**
 	 * 
 	 */
 	@Override
-	public void registerReplyListener(DataProcessorReplyListener replyListener) {
+	public void registerReplyListener(ContainerReplyListener replyListener) {
 		this.replyListener = replyListener;
 	}
 	
@@ -185,8 +181,10 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 */
 	@Override
 	public ContainerDelegate[] getContainerDelegates(){
-		this.awaitAllClients(10);
-		return this.containerDelegates.values().toArray(new ContainerDelegate[]{});
+		if (this.awaitAllClients(60)){
+			return this.containerDelegates.values().toArray(new ContainerDelegate[]{});
+		}
+		throw new IllegalStateException("Can't establish connection with all Application Containers");
 	}
 
 	/**
@@ -211,13 +209,12 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 */
 	@Override
 	void onDisconnect(SelectionKey selectionKey) {
-		try {
-			selectionKey.channel().close();
-		} 
-		catch (Exception e) {
-			logger.error("Failed to clode channel");
-		}
 		this.containerDelegates.remove(selectionKey);
+		if (this.containerDelegates.size() == 0){
+			if (this.listening){
+				this.listening = false;
+			}
+		}
 	}
 
 	/**
@@ -251,10 +248,11 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 		}
 		else {
 			channel.configureBlocking(false);
-	        channel.register(this.getSelector(), SelectionKey.OP_READ);
+	        SelectionKey clientSelectionKey = channel.register(this.getSelector(), SelectionKey.OP_READ);
 	        if (logger.isInfoEnabled()){
 	        	logger.info("Accepted conection request from: " + channel.socket().getRemoteSocketAddress());
 	        }
+	        this.containerDelegates.put(clientSelectionKey, new ContainerDelegateImpl(clientSelectionKey, this));
 			this.expectedClientContainersMonitor.countDown();
 		}
 	}
@@ -272,7 +270,10 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 			this.replyListener.onReply(replyBuffer);
 		}
 		replyCallbackHandler.postProcess(replyBuffer);
-		if (this.finite){
+		
+		if (this.finite) {
+			selectionKey.cancel();
+			selectionKey.channel().close();
 			this.onDisconnect(selectionKey);
 		}
 	}
@@ -286,49 +287,6 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 
 		selectionKey.attach(message);
 		selectionKey.interestOps(SelectionKey.OP_WRITE);
-	}
-	
-	/**
-	 * 
-	 * @param selectionKey
-	 * @param containerSelectionKeys
-	 */
-	private void stopContainer(SelectionKey selectionKey, Iterator<SelectionKey> containerSelectionKeys){
-		try {
-			selectionKey.channel().close();
-		} 
-		catch (Exception e) {
-			logger.warn("Failed to close channel", e);
-		}
-		containerSelectionKeys.remove();
-	}
-	
-	/**
-	 * Returns filtered {@link List}} of {@link SelectionKey}s which will contain 
-	 * only {@link SelectionKey}s  that belong to {@link SocketChannel} of the client connection 
-	 * @return
-	 */
-	private List<SelectionKey> getClientSelectionKeys() {
-		List<SelectionKey> selectorKeys = new ArrayList<>();
-		if (this.getSelector().isOpen()){
-			for (SelectionKey selectionKey : this.getSelector().keys()) {
-				if (selectionKey.isValid() && selectionKey.channel() instanceof SocketChannel){
-					selectorKeys.add(selectionKey);
-				}
-			}
-		}
-		return selectorKeys;
-	}
-	
-	/**
-	 * 
-	 */
-	private void buildContainerDelegates(){
-		for (SelectionKey selectionKey : this.getClientSelectionKeys()) {
-			if (selectionKey.isValid() && selectionKey.selector().isOpen()){
-				this.containerDelegates.put(selectionKey, new ContainerDelegateImpl(selectionKey, this));
-			}
-		}
 	}
 	
 	/**

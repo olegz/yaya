@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api.net;
+package oz.hadoop.yarn.api.utils;
 
 import java.nio.ByteBuffer;
 
 import org.junit.Test;
+
+import oz.hadoop.yarn.api.utils.ByteBufferUtils;
 
 /**
  * @author Oleg Zhurakousky

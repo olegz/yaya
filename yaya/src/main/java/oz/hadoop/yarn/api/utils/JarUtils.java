@@ -24,12 +24,17 @@ import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.util.StringUtils;
 /**
  *
  * @author Oleg Zhurakousky
  *
  */
 public class JarUtils {
+	private final static Log logger = LogFactory.getLog(JarUtils.class);
 	/**
 	 * Will create a JAR file frombase dir
 	 *
@@ -90,19 +95,32 @@ public class JarUtils {
 
 			JarEntry entry = new JarEntry(path.replace("\\", "/").substring(1)); // avoiding absolute path warning
 			entry.setTime(source.lastModified());
-			
-			target.putNextEntry(entry);
-			in = new BufferedInputStream(new FileInputStream(source));
+			try {
+				target.putNextEntry(entry);
+				in = new BufferedInputStream(new FileInputStream(source));
 
-			byte[] buffer = new byte[1024];
-			while (true) {
-				int count = in.read(buffer);
-				if (count == -1) {
-					break;
+				byte[] buffer = new byte[1024];
+				while (true) {
+					int count = in.read(buffer);
+					if (count == -1) {
+						break;
+					}
+					target.write(buffer, 0, count);
 				}
-				target.write(buffer, 0, count);
+				target.closeEntry();
+			} 
+			catch (Exception e) {
+				String message = e.getMessage();
+				if (StringUtils.hasText(message)){
+					if (!message.toLowerCase().contains("duplicate")){
+						throw new IllegalStateException(e);
+					}
+					logger.warn(message);
+				}
+				else {
+					throw new IllegalStateException(e);
+				}
 			}
-			target.closeEntry();
 		}
 		finally {
 			if (in != null)

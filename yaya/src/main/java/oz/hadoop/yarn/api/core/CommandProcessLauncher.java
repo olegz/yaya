@@ -15,7 +15,6 @@
  */
 package oz.hadoop.yarn.api.core;
 
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
@@ -34,7 +33,7 @@ import oz.hadoop.yarn.api.utils.ReflectionUtils;
  * @author Oleg Zhurakousky
  *
  */
-class CommandProcessLauncher extends ProcessLauncher {
+class CommandProcessLauncher extends ProcessLauncher<Void> {
 	
 	private final Log logger = LogFactory.getLog(CommandProcessLauncher.class);
 
@@ -49,8 +48,8 @@ class CommandProcessLauncher extends ProcessLauncher {
 	 * @param command
 	 * @param containerLivelinesBarrier
 	 */
-	public CommandProcessLauncher(String command, CountDownLatch containerLivelinesBarrier) {
-		super(containerLivelinesBarrier);
+	public CommandProcessLauncher(String command) {
+		super();
 		Assert.hasText(command, "'command' must not be null or empty");
 		this.command = command;
 		this.streamsFinished = new AtomicInteger();
@@ -60,7 +59,7 @@ class CommandProcessLauncher extends ProcessLauncher {
 	 * 
 	 */
 	@Override
-	public void launch() {
+	public Void launch() {
 		try {
 			logger.info("Executing command " + this.command);
 			this.process = Runtime.getRuntime().exec(this.command);
@@ -84,6 +83,7 @@ class CommandProcessLauncher extends ProcessLauncher {
 		catch (Exception e) {
 			logger.error("Command '" + this.command + "' failed.", e);
 		}
+		return null;
 	}
 	
 	/**
@@ -98,6 +98,7 @@ class CommandProcessLauncher extends ProcessLauncher {
 					logger.debug("Process has completed");
 				}
 			}
+			this.finish();
 		}
 	}
 

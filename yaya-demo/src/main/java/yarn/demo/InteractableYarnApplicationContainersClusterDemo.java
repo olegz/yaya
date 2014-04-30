@@ -17,14 +17,12 @@ package yarn.demo;
 
 import java.nio.ByteBuffer;
 import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 import oz.hadoop.yarn.api.ApplicationContainerProcessor;
+import oz.hadoop.yarn.api.ContainerReplyListener;
 import oz.hadoop.yarn.api.DataProcessor;
-import oz.hadoop.yarn.api.DataProcessorReplyListener;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
 
@@ -32,7 +30,7 @@ import oz.hadoop.yarn.api.YarnAssembly;
  * This demo showcases long-running reusable containers you can interact with
  * by exchanging messages. This one (while trivial) demonstrates a simple YARN
  * application which echoes back the message. If you want to print the reply 
- * that was echoed back simply register {@link DataProcessorReplyListener} with
+ * that was echoed back simply register {@link ContainerReplyListener} with
  * {@link DataProcessor}
  * 
  * This demo requires a valid YARN cluster (mini-cluster or full cluster) provided
@@ -50,14 +48,24 @@ public class InteractableYarnApplicationContainersClusterDemo {
 	 * Ensure valid YarnConfiguration is available in the classpath, then run.
 	 */
 	public static void main(String[] args) throws Exception {
-		ExecutorService executor = Executors.newSingleThreadExecutor();
-		
+
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
-				containerCount(8).
+				containerCount(4).
 				withApplicationMaster(new YarnConfiguration()).
 					maxAttempts(2).
 					build("InteractableYarnApplicationContainersClusterDemo");
 
+		yarnApplication.registerReplyListener(new ContainerReplyListener() {	
+			@Override
+			public void onReply(ByteBuffer replyData) {
+				byte[] replyBytes = new byte[replyData.limit()];
+				replyData.rewind();
+				replyData.get(replyBytes);
+				replyData.rewind();
+				String reply = new String(replyBytes);
+				System.out.println("REPLY: " + reply);
+			}
+		});
 		/*
 		 * DataProcessor essentially is a proxy over all Application Containers defined by this 
 		 * application and running in YARN (8 in this case).
@@ -69,29 +77,17 @@ public class InteractableYarnApplicationContainersClusterDemo {
 		 * DataProcessor if interested in receiving a reply from the distributed process.
 		 */
 		final DataProcessor dataProcessor = yarnApplication.launch();
-		executor.execute(new Runnable() {
-			@Override
-			public void run() {
-				for (int i = 0; i < 30; i++) {
-					/*
-					 * Actual processing will be delegated to the first available (out of 8 deployed) 
-					 * remote Application Containers.
-					 */
-					dataProcessor.process(ByteBuffer.wrap(("Hello Yarn Grid! - " + i).getBytes()));
-				}
-			}
-		});
 		
-		Thread.sleep(2000); //let it run for a bit and then shutdown
-		/*
-		 * NOTE: This is a graceful shutdown, letting 
-		 * currently running Application Containers to finish its tasks running as 
-		 * implemented ApplicationContainerProcessors, while not accepting any more tasks 
-		 * (rejecting process(..) calls). So you may see a "Rejecting submission..." message in the logs.
-		 */
+		for (int i = 0; i < 30; i++) {
+			/*
+			 * Actual processing will be delegated to the first available (out of 8 deployed) 
+			 * remote Application Containers.
+			 */
+			dataProcessor.process(ByteBuffer.wrap(("Hello Yarn Grid! - " + i).getBytes()));
+		}
+		
 		yarnApplication.shutDown();
 		System.out.println("Processes completed since launch: " + dataProcessor.completedSinceStart());
-		executor.shutdown();
 	}
 	
 	/**

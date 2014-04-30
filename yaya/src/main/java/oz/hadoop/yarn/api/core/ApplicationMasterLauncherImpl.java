@@ -250,7 +250,7 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 	 */
 	private Map<String, LocalResource> createLocalResources() {
 		Map<String, LocalResource> localResources = new LinkedHashMap<String, LocalResource>();
-
+		logger.info("Setting up application classpath by Creating LocalResources and generating JARs if need to. Enable DEBUG for more info.");
 		try {
 			FileSystem fs = FileSystem.get(this.yarnConfig);
 

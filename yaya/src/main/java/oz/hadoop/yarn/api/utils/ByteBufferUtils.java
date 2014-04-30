@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package oz.hadoop.yarn.api.net;
+package oz.hadoop.yarn.api.utils;
 
 import java.nio.ByteBuffer;
 
@@ -26,7 +26,7 @@ import org.apache.commons.collections.BufferOverflowException;
  * @author Oleg Zhurakousky
  *
  */
-class ByteBufferUtils {
+public class ByteBufferUtils {
 
 	private static int threshold = 1073741824; // 1GB
 

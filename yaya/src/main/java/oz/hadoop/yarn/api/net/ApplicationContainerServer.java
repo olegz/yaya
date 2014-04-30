@@ -15,7 +15,7 @@
  */
 package oz.hadoop.yarn.api.net;
 
-import oz.hadoop.yarn.api.DataProcessorReplyListener;
+import oz.hadoop.yarn.api.ContainerReplyListener;
 
 /**
  * Strategy for implementing ClientServers.
@@ -45,7 +45,7 @@ public interface ApplicationContainerServer extends SocketHandler {
 	 * 
 	 * @param replyListener
 	 */
-	void registerReplyListener(DataProcessorReplyListener replyListener);
+	void registerReplyListener(ContainerReplyListener replyListener);
 	
 	/**
 	 * 

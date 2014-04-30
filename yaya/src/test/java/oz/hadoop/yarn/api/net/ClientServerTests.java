@@ -16,20 +16,23 @@
 package oz.hadoop.yarn.api.net;
 
 import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNull;
+import static junit.framework.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 
 import org.junit.Test;
 
@@ -40,14 +43,122 @@ import org.junit.Test;
 public class ClientServerTests {
 	
 	@Test
-	public void testMoreThenExpectedClients() throws Exception {
+	public void validateNetworkStackShutdownAndOnDisconnectListenerInvocationByClosingServer() throws Exception {
+		int expectedClients = 2;
+		Runnable onDisconnectTaskServer = mock(Runnable.class);
+		Runnable onDisconnectTaskClient = mock(Runnable.class);
+		
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(expectedClients, false, onDisconnectTaskServer);
+		InetSocketAddress address = clientServer.start();
+		assertTrue(clientServer.isRunning());
+		
+		ApplicationContainerClientImpl containerClientOne = new ApplicationContainerClientImpl(address, new EchoMessageHandler(), onDisconnectTaskClient);
+		containerClientOne.start();
+		assertTrue(containerClientOne.isRunning());
+		
+		ApplicationContainerClientImpl containerClientTwo = new ApplicationContainerClientImpl(address, new EchoMessageHandler(), onDisconnectTaskClient);
+		containerClientTwo.start();
+		assertTrue(containerClientTwo.isRunning());
+		
+		clientServer.awaitAllClients(2);
+		
+		verify(onDisconnectTaskClient, times(0)).run();
+		verify(onDisconnectTaskServer, times(0)).run();
+		
+		clientServer.stop(false);
+		clientServer.awaitShutdown();	
+		
+		assertFalse(clientServer.isRunning());
+		assertFalse(containerClientOne.isRunning());
+		assertFalse(containerClientTwo.isRunning());
+		verify(onDisconnectTaskClient, times(2)).run();
+		verify(onDisconnectTaskServer, times(1)).run();
+	}
+	
+	@Test
+	public void validateNetworkStackShutdownAndOnDisconnectListenerInvocationByClosingClients() throws Exception {
+		int expectedClients = 2;
+		Runnable onDisconnectTaskServer = mock(Runnable.class);
+		Runnable onDisconnectTaskClient = mock(Runnable.class);
+		
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(expectedClients, false, onDisconnectTaskServer);
+		InetSocketAddress address = clientServer.start();
+		assertTrue(clientServer.isRunning());
+		
+		ApplicationContainerClientImpl containerClientOne = new ApplicationContainerClientImpl(address, new EchoMessageHandler(), onDisconnectTaskClient);
+		containerClientOne.start();
+		assertTrue(containerClientOne.isRunning());
+		
+		ApplicationContainerClientImpl containerClientTwo = new ApplicationContainerClientImpl(address, new EchoMessageHandler(), onDisconnectTaskClient);
+		containerClientTwo.start();
+		assertTrue(containerClientTwo.isRunning());
+		
+		clientServer.awaitAllClients(2);
+		
+		verify(onDisconnectTaskClient, times(0)).run();
+		verify(onDisconnectTaskServer, times(0)).run();
+		
+		containerClientOne.stop(false);
+		assertTrue(clientServer.isRunning());
+		assertFalse(containerClientOne.isRunning());
+
+		verify(onDisconnectTaskClient, times(1)).run();
+		verify(onDisconnectTaskServer, times(0)).run();
+		
+		containerClientTwo.stop(false);
+		
+		clientServer.awaitShutdown();	
+		assertFalse(clientServer.isRunning());
+		assertFalse(containerClientTwo.isRunning());
+		
+		verify(onDisconnectTaskClient, times(2)).run();
+		verify(onDisconnectTaskServer, times(1)).run();
+	}
+	
+	@Test
+	public void validateForcedShutdown() throws Exception {
+		ExecutorService executor = Executors.newCachedThreadPool();
+		int expectedClients = 2;
+		final ApplicationContainerServer clientServer = new ApplicationContainerServerImpl(expectedClients, false, mock(Runnable.class));
+		InetSocketAddress address = clientServer.start();
+		
+		ApplicationContainerClient containerClientOne = new ApplicationContainerClientImpl(address, new BlockingMessageHandler(), mock(Runnable.class));
+		containerClientOne.start();
+		
+		ApplicationContainerClient containerClientTwo = new ApplicationContainerClientImpl(address, new BlockingMessageHandler(), mock(Runnable.class));
+		containerClientTwo.start();
+		
+		clientServer.awaitAllClients(1);
+		
+		ContainerDelegate[] containerDelegates = clientServer.getContainerDelegates();
+		for (ContainerDelegate containerDelegate : containerDelegates) {
+			containerDelegate.process(ByteBuffer.wrap("foo".getBytes()), mock(ReplyPostProcessor.class));
+		}
+		// attempt to shutdown without force. it will block without success since the container tasks are infinite
+		executor.execute(new Runnable() {	
+			@Override
+			public void run() {
+				clientServer.stop(false);
+			}
+		});
+		
+		Thread.sleep(2000);
+		assertTrue(clientServer.isRunning());
+		clientServer.stop(true);
+		clientServer.awaitShutdown();	
+		
+		assertFalse(clientServer.isRunning());
+	}
+	
+	@Test
+	public void validateMoreThenExpectedClients() throws Exception {
 		for (int y = 0; y < 10; y++) {
 			int expectedClients = 2;
-			ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(expectedClients, false);
+			ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(expectedClients, false, mock(Runnable.class));
 			InetSocketAddress address = clientServer.start();
 			
 			for (int i = 0; i < 40; i++) {
-				ApplicationContainerClientImpl containerClientOne = new ApplicationContainerClientImpl(address, new EchoMessageHandler());
+				ApplicationContainerClientImpl containerClientOne = new ApplicationContainerClientImpl(address, new EchoMessageHandler(), mock(Runnable.class));
 				containerClientOne.start();
 			}
 			
@@ -61,14 +172,14 @@ public class ClientServerTests {
 	}
 	
 	@Test(timeout=5000)
-	public void testSimpleInterruction() throws Exception {
+	public void validateSimpleInterruction() throws Exception {
 		int expectedClients = 2;
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false, mock(Runnable.class));
 		InetSocketAddress address = clientServer.start();
 		
 		for (int i = 0; i < expectedClients; i++) {
-			ApplicationContainerClientImpl containerClientOne = new ApplicationContainerClientImpl(address, new EchoMessageHandler());
+			ApplicationContainerClientImpl containerClientOne = new ApplicationContainerClientImpl(address, new EchoMessageHandler(), mock(Runnable.class));
 			containerClientOne.start();
 		}
 		
@@ -90,11 +201,12 @@ public class ClientServerTests {
 			}
 		}
 		clientServer.stop(false);
+		clientServer.awaitShutdown();	
 	}
 
 	@Test(timeout=5000)
-	public void testServerWithMixedMessages() throws Exception {
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(1, false);
+	public void validateMixedMessageSizeExchange() throws Exception {
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(1, false, mock(Runnable.class));
 		InetSocketAddress address = clientServer.start();
 		StringBuffer buffer = new StringBuffer();
 		String s = "Hello World";
@@ -106,7 +218,7 @@ public class ClientServerTests {
 		buffer.append("\r\n");
 		String message = buffer.toString().substring(0, 16384);
 		
-		ApplicationContainerClientImpl containerClient = new ApplicationContainerClientImpl(address, new SampleMessageHandler());
+		ApplicationContainerClientImpl containerClient = new ApplicationContainerClientImpl(address, new SampleMessageHandler(), mock(Runnable.class));
 		containerClient.start();
 		
 		final ByteBuffer b1 = ByteBuffer.wrap(message.getBytes());
@@ -133,53 +245,16 @@ public class ClientServerTests {
 		});
 	}
 	
-	@Test(timeout=5000)
-	public void testWithExpectedClients() throws Exception {
-		ExecutorService executor = Executors.newCachedThreadPool();
-		final int expectedClients = 4;
-		
-		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false);
-		final InetSocketAddress actualServerAddress = clientServer.start();
-		@SuppressWarnings("unchecked")
-		Future<ApplicationContainerClientImpl>[] clients = new Future[expectedClients];
-		
-		for (int i = 0; i < expectedClients; i++) {
-			clients[i] = executor.submit(new Callable<ApplicationContainerClientImpl>() {
-				@Override
-				public ApplicationContainerClientImpl call() throws Exception {
-					try {
-						Thread.sleep(new Random().nextInt(200));
-						ApplicationContainerClientImpl containerClient = new ApplicationContainerClientImpl(actualServerAddress, new SampleMessageHandler());
-						containerClient.start();
-						return containerClient;
-					} 
-					catch (Exception e) {
-						throw new RuntimeException(e);
-					}
-				}
-			});
-		}
-		
-		clientServer.awaitAllClients(30);
-		assertEquals(clientServer.getContainerDelegates().length, expectedClients);
-		for (Future<ApplicationContainerClientImpl> future : clients) {
-			ApplicationContainerClient client = future.get();
-			assertNotNull(client);
-		}
-		clientServer.stop(false);
-	}
-	
 	@Test(timeout=30000)
-	public void testWithMixedMessagesAndCorrectResultMultiClient() throws Exception {
+	public void validateWithMixedMessageSizesAndCorrectResultMultiClient() throws Exception {
 		ExecutorService executor = Executors.newFixedThreadPool(20);
 		final int expectedClients = 40;
 		
 		InetSocketAddress sa = new InetSocketAddress(InetAddress.getLocalHost().getHostAddress(), 0);
-		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false);
+		ApplicationContainerServerImpl clientServer = new ApplicationContainerServerImpl(sa, expectedClients, false, mock(Runnable.class));
 		InetSocketAddress actualServerAddress = clientServer.start();
 		for (int i = 0; i < expectedClients; i++) {
-			ApplicationContainerClientImpl containerClient = new ApplicationContainerClientImpl(actualServerAddress, new EchoMessageHandler());
+			ApplicationContainerClientImpl containerClient = new ApplicationContainerClientImpl(actualServerAddress, new EchoMessageHandler(), mock(Runnable.class));
 			containerClient.start();
 		}
 		
@@ -225,11 +300,9 @@ public class ClientServerTests {
 		
 		clientServer.stop(false);
 		executor.shutdown();
-		System.out.println("Stopped");
 	}
 	
 	private static class EchoMessageHandler implements ApplicationContainerMessageHandler {
-
 		@Override
 		public ByteBuffer handle(ByteBuffer messageBuffer) {
 			return messageBuffer;
@@ -239,7 +312,26 @@ public class ClientServerTests {
 		public void onDisconnect() {
 			
 		}
-		
+	}
+	
+	private static class BlockingMessageHandler implements ApplicationContainerMessageHandler {
+		@Override
+		public ByteBuffer handle(ByteBuffer messageBuffer) {
+			for (int i = 0; i < 1000000; i++) {
+				LockSupport.parkNanos(1000000000);
+				boolean interrupted = Thread.interrupted();
+				System.out.println(this +  " - running: " + interrupted);
+				if (interrupted){
+					break;
+				}
+			}
+			return messageBuffer;
+		}
+
+		@Override
+		public void onDisconnect() {
+			
+		}
 	}
 	
 	private static class SampleMessageHandler implements ApplicationContainerMessageHandler {

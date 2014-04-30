@@ -23,8 +23,15 @@ import java.nio.ByteBuffer;
  */
 public interface ApplicationContainerMessageHandler {
 	
-	
+	/**
+	 * 
+	 * @param messageBuffer
+	 * @return
+	 */
 	ByteBuffer handle(ByteBuffer messageBuffer);
 	
+	/**
+	 * 
+	 */
 	void onDisconnect();
 }

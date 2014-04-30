@@ -16,7 +16,6 @@
 package oz.hadoop.yarn.api.core;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -42,15 +41,13 @@ class MessageDispatchingHandler implements ApplicationContainerMessageHandler {
 	
 	private final ApplicationContainerProcessor applicationContainer;
 	
-	private final CountDownLatch disconnectMonitor;
 	/**
 	 * 
 	 * @param applicationContainer
 	 * @param disconnectMonitor
 	 */
-	public MessageDispatchingHandler(ApplicationContainerProcessor applicationContainer, CountDownLatch disconnectMonitor){
+	public MessageDispatchingHandler(ApplicationContainerProcessor applicationContainer){
 		this.applicationContainer = applicationContainer;
-		this.disconnectMonitor = disconnectMonitor;
 	}
 
 	/**
@@ -61,11 +58,7 @@ class MessageDispatchingHandler implements ApplicationContainerMessageHandler {
 		if (logger.isDebugEnabled()){
 			logger.debug("Handling buffer: " + messageBuffer);
 		}
-		ByteBuffer reply = null;
-		if (this.applicationContainer != null){
-			reply = this.applicationContainer.process(messageBuffer);
-		}
-		return reply;
+		return this.applicationContainer.process(messageBuffer);
 	}
 
 	/**
@@ -76,6 +69,5 @@ class MessageDispatchingHandler implements ApplicationContainerMessageHandler {
 		if (logger.isDebugEnabled()){
 			logger.debug("Received onDisconnect event");
 		}
-		this.disconnectMonitor.countDown();
 	}
 }

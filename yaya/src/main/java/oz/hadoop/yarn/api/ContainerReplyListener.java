@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
  * @author Oleg Zhurakousky
  *
  */
-public interface DataProcessorReplyListener {
+public interface ContainerReplyListener {
 
 	/**
 	 * Callback method to receive and process a reply produced by a task running as

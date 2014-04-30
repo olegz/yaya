@@ -18,7 +18,6 @@ package oz.hadoop.yarn.api.core;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -31,7 +30,7 @@ import org.apache.commons.logging.LogFactory;
  * @author Oleg Zhurakousky
  *
  */
-abstract class ProcessLauncher {
+abstract class ProcessLauncher<R> {
 	
 	private final Log logger = LogFactory.getLog(ProcessLauncher.class);
 	
@@ -43,15 +42,15 @@ abstract class ProcessLauncher {
 	 * 
 	 * @param containerLivelinesBarrier
 	 */
-	ProcessLauncher(CountDownLatch containerLivelinesBarrier){
+	ProcessLauncher(){
 		this.executor = Executors.newCachedThreadPool();
-		this.containerLivelinesBarrier = containerLivelinesBarrier;
+		this.containerLivelinesBarrier = new CountDownLatch(1);
 	}
 
 	/**
 	 * 
 	 */
-	abstract void launch();
+	abstract R launch();
 	
 	/**
 	 * 
@@ -65,23 +64,14 @@ abstract class ProcessLauncher {
 	 * 
 	 */
 	void finish(){
-		while (this.containerLivelinesBarrier.getCount() > 0){
-			this.containerLivelinesBarrier.countDown();
-		}
-		logger.info("Shutting down executor");
-		this.executor.shutdown();
-		if (!this.executor.isTerminated()){
-			try {
-				if (!this.executor.awaitTermination(5, TimeUnit.SECONDS)){
-					logger.warn("Killing executor with interrupt");
-					this.executor.shutdownNow();
-				}
-			} 
-			catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				logger.warn("Interrupted while waiting for executor to shut down");
-			}
-		}
+		logger.debug("Shutting down executor");
+		/*
+		 * We are actually terminating the executor. Since this is an internal method and its invocation 
+		 * is tightly controlled its invocation constitutes desire to stop ASAP.
+		 * If some containers need to be finished (e.g., graceful shutdown), it's taken care of by other 
+		 * processes before this method is invoked. 
+		 */
+		this.executor.shutdownNow();
 	}
 	
 	/**

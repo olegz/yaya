@@ -30,9 +30,9 @@ import org.apache.commons.logging.LogFactory;
  * @author Oleg Zhurakousky
  *
  */
-class ByteBufferPoll {
+class ByteBufferPool {
 	
-	private final Log logger = LogFactory.getLog(ByteBufferPoll.class);
+	private final Log logger = LogFactory.getLog(ByteBufferPool.class);
 	
 	private static final int DEF_SIZE = 1048576; // 1MB
 	
@@ -45,7 +45,7 @@ class ByteBufferPoll {
 	/**
 	 * 
 	 */
-	public ByteBufferPoll(){
+	public ByteBufferPool(){
 		this(DEF_SIZE, BUFFER_COUNT);
 	}
 	
@@ -54,7 +54,7 @@ class ByteBufferPoll {
 	 * @param initialBufferSize
 	 * @param bufferCount
 	 */
-	public ByteBufferPoll(int initialBufferSize, int bufferCount){
+	public ByteBufferPool(int initialBufferSize, int bufferCount){
 		this.initialBufferSize = initialBufferSize;
 		this.bufferQueue = new ArrayBlockingQueue<>(bufferCount);
 	}	

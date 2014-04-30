@@ -58,6 +58,8 @@ public interface YarnApplication<T> {
 	 */
 	T launch();
 	
+	void awaitLaunch();
+	
 	/**
 	 * Will attempt shut down this application gracefully, allowing Application Container
 	 * tasks running as commands or java {@link ApplicationContainerProcessor}s to finish
@@ -107,4 +109,13 @@ public interface YarnApplication<T> {
 	 * @return
 	 */
 	Map<String, Object> getApplicationSpecification();
+	
+	/**
+	 * Allow for the registration of the {@link ContainerReplyListener} for the cases where
+	 * you need to deal with replies produced by the {@link ApplicationContainerProcessor}s or commands executed 
+	 * by Application Containers.
+	 *
+	 * @param replyListener
+	 */
+	void registerReplyListener(ContainerReplyListener replyListener);
 }

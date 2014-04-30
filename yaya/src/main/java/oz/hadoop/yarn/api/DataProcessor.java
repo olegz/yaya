@@ -64,12 +64,12 @@ public interface DataProcessor {
 	 */
 	int containers();
 	
-	/**
-	 * Allow for the registration of the {@link DataProcessorReplyListener} for the cases where
-	 * you need to deal with replies produced by the {@link ApplicationContainerProcessor}s or commands executed 
-	 * by Application Containers.
-	 *
-	 * @param replyListener
-	 */
-	void registerReplyListener(DataProcessorReplyListener replyListener);
+//	/**
+//	 * Allow for the registration of the {@link DataProcessorReplyListener} for the cases where
+//	 * you need to deal with replies produced by the {@link ApplicationContainerProcessor}s or commands executed 
+//	 * by Application Containers.
+//	 *
+//	 * @param replyListener
+//	 */
+//	void registerReplyListener(DataProcessorReplyListener replyListener);
 }

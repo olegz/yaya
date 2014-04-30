@@ -22,6 +22,5 @@ package oz.hadoop.yarn.api.net;
  */
 public interface ApplicationContainerClient extends SocketHandler {
 	
-	public abstract void awaitShutdown();
 
 }

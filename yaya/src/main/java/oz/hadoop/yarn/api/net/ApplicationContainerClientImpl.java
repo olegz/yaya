@@ -22,10 +22,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
+import oz.hadoop.yarn.api.utils.ByteBufferUtils;
 
 
 /**
@@ -43,42 +44,31 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 	
 	private final ApplicationContainerMessageHandler messageHandler;
 	
-	private final CountDownLatch lifeCycleLatch;
-	
 	/**
 	 * Connects and instance of ApplicationContainerClient for a provided {@link SocketAddress}
 	 * which points to the running server (see {@link ApplicationContainerServerImpl})
 	 * 
 	 * @param address
 	 */
-	public ApplicationContainerClientImpl(InetSocketAddress address, ApplicationContainerMessageHandler messageHandler){
-		super(address, false);
+	public ApplicationContainerClientImpl(InetSocketAddress address, ApplicationContainerMessageHandler messageHandler, Runnable onDisconnectTask){
+		super(address, false, onDisconnectTask);
 		this.messageHandler = messageHandler;
-		this.lifeCycleLatch = new CountDownLatch(1);
-	}
-	
-	/* (non-Javadoc)
-	 * @see oz.hadoop.yarn.api.net.ApplicationContainerClient#awaitShutdown()
-	 */
-	@Override
-	public void awaitShutdown(){
-		try {
-			this.lifeCycleLatch.await();
-		}
-		catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			logger.warn("Interrupted while waiting for shutdown", e);
-		}
 	}
 	
 	@Override
 	void onDisconnect(SelectionKey selectionKey) {
-		if (this.running){
-			this.running = false;
-			this.executor.shutdown();
-			this.lifeCycleLatch.countDown();
-			this.messageHandler.onDisconnect();
+		if (this.listening){
+			this.listening = false;
 		}
+		/*
+		 * Keep in mind that shutdown is never initiated by the client (e.g., calling stop(). 
+		 * It always initiated by the Server by closing client's socket. This means that the Server manages
+		 * details around 'force' vs 'graceful'shutdown. So, in the cases of graceful shutdown,
+		 * the client's task will already be complete before the shutdown*() is called so shutdownNow() 
+		 * would have the same results as shutdown(). However, for 'force' shutdown, calling shutdown now
+		 * will have no effect on the currently running task while shutdownNow will cause the interrupt.
+		 */
+		this.executor.shutdownNow();
 	}
 	
 	/**
@@ -122,10 +112,19 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 		
 		private final SelectionKey selectionKey;
 		
+		/**
+		 * 
+		 * @param messageBuffer
+		 * @param selectionKey
+		 */
 		MessageProcessor(ByteBuffer messageBuffer, SelectionKey selectionKey){
 			this.messageBuffer = messageBuffer;
 			this.selectionKey = selectionKey;
 		}
+		
+		/**
+		 * 
+		 */
 		@Override
 		public void run() {
 			ByteBuffer replyBuffer = ApplicationContainerClientImpl.this.messageHandler.handle(this.messageBuffer);

@@ -76,9 +76,9 @@ abstract class AbstractContainer {
 		if (logger.isInfoEnabled()){
 			logger.info("Application Container specification: " + PrintUtils.prettyMap(this.applicationSpecification));
 		}
-		if (logger.isDebugEnabled()) {
-			logger.debug("SYSTEM PROPERTIES:\n" + PrintUtils.prettyMap(System.getProperties()));
-			logger.debug("ENVIRONMENT VARIABLES:\n" + PrintUtils.prettyMap(System.getenv()));
+		if (logger.isTraceEnabled()) {
+			logger.trace("SYSTEM PROPERTIES:\n" + PrintUtils.prettyMap(System.getProperties()));
+			logger.trace("ENVIRONMENT VARIABLES:\n" + PrintUtils.prettyMap(System.getenv()));
 		}
 	}
 	
@@ -104,5 +104,19 @@ abstract class AbstractContainer {
 		catch (Exception e) {
 			throw new IllegalArgumentException("Failed to parse arguments out of the json string", e);
 		}
+	}
+	
+	/**
+	 *
+	 */
+	static class LauncherHolder {
+		private static final ThreadLocal<AbstractContainer> holder = new ThreadLocal<AbstractContainer>();
+		public static void set(AbstractContainer container) {
+			holder.set(container);
+		}
+
+	    public static AbstractContainer get() {
+	        return holder.get();
+	    }
 	}
 }

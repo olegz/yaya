@@ -16,9 +16,11 @@
 package oz.hadoop.yarn.api.core;
 
 import java.util.Map;
+import java.util.concurrent.locks.LockSupport;
 
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
+import oz.hadoop.yarn.api.ContainerReplyListener;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
 import oz.hadoop.yarn.api.YayaConstants;
@@ -102,5 +104,17 @@ class ApplicationImpl<T> implements YarnApplication<T> {
 	@Override
 	public void terminate() {
 		this.yarnApplicationMasterLauncher.terminate();
+	}
+
+	@Override
+	public void registerReplyListener(ContainerReplyListener replyListener) {
+		this.yarnApplicationMasterLauncher.registerReplyListener(replyListener);
+	}
+
+	@Override
+	public void awaitLaunch() {
+		while (!this.isRunning()){
+			LockSupport.parkNanos(1000000);
+		}
 	}
 }

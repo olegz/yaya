@@ -30,19 +30,15 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
-import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
-import org.apache.hadoop.yarn.api.records.Priority;
-import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.impl.NMClientAsyncImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.json.simple.JSONObject;
@@ -57,8 +53,6 @@ import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 public class ApplicationContainerLauncherImpl extends AbstractApplicationContainerLauncher {
 	
 	private final Log logger = LogFactory.getLog(ApplicationContainerLauncherImpl.class);
-	
-	private final ApplicationMasterCallbackSupport callbackSupport;
 	
 	private final AMRMClientAsync<ContainerRequest> resourceManagerClient;
 	
@@ -75,7 +69,6 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 	 */
 	public ApplicationContainerLauncherImpl(PrimitiveImmutableTypeMap applicationSpecification, PrimitiveImmutableTypeMap containerSpecification) {
 		super(applicationSpecification, containerSpecification);
-		this.callbackSupport = new ApplicationMasterCallbackSupport();
 		this.resourceManagerClient = AMRMClientAsync.createAMRMClientAsync(100, this.callbackSupport.buildResourceManagerCallbackHandler(this));		
 		this.nodeManagerCallbaclHandler = this.callbackSupport.buildNodeManagerCallbackHandler(this);
 		this.nodeManagerClient = new NMClientAsyncImpl(this.nodeManagerCallbaclHandler);
@@ -126,31 +119,18 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 	}
 	
 	/**
-	 *
-	 * @param container
-	 */
-	void signalContainerCompletion(ContainerStatus containerStatus) {
-		this.livelinessBarrier.countDown();
-		if (containerStatus.getExitStatus() != 0){
-			this.error = new IllegalStateException(containerStatus.getDiagnostics());
-		}
-	}
-	
-	/**
 	 * 
 	 */
 	void initiateShutdown(List<Container> containers) {	
 		logger.debug("Initiating shutdown");
-		for (int i = 0; i < this.containerCount; i++) {
-			this.livelinessBarrier.countDown();
-		}
 	}
 	
 	/**
 	 * 
 	 * @param allocatedContainer
 	 */
-	void launchContainer(Container allocatedContainer){
+	@Override
+	void containerAllocated(Container allocatedContainer){
 		try {
 			ContainerLaunchContext containerLaunchContext = Records.newRecord(ContainerLaunchContext.class);
 			Map<String, LocalResource> localResources = this.buildLocalResources();
@@ -171,7 +151,6 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 			this.nodeManagerClient.startContainerAsync(allocatedContainer, containerLaunchContext);
 		}
 		catch (Exception e) {
-			this.livelinessBarrier.countDown();
 			logger.warn("Failed to launch container " + allocatedContainer.getId(), e);
 			this.error = e;
 		}
@@ -254,24 +233,7 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 		logger.debug("Started NMClientAsyncImpl client");
 	}
 	
-	/**
-	 * Will create a {@link ContainerRequest} to the {@link ResourceManager}
-	 * to obtain an application container
-	 */
-	private ContainerRequest createConatinerRequest() {
-		Priority priority = Records.newRecord(Priority.class);
-		priority.setPriority(this.containerSpecification.getInt(YayaConstants.PRIORITY));
-		Resource capability = Records.newRecord(Resource.class);
-		capability.setMemory(this.containerSpecification.getInt(YayaConstants.MEMORY));
-		capability.setVirtualCores(this.containerSpecification.getInt(YayaConstants.VIRTUAL_CORES));
-
-		//TODO support configuration to request resource containers on specific nodes
-		ContainerRequest request = new ContainerRequest(capability, null, null, priority);
-		if (logger.isDebugEnabled()){
-			logger.debug("Created container request: " + request);
-		}
-		return request;
-	}
+	
 	
 	/**
 	 *

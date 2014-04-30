@@ -61,9 +61,7 @@ class ApplicationMaster extends AbstractContainer {
 		
 		// this method will block until containers are finished (on its own or terminated)
 		this.applicationContainerLauncher.launch();
-		
-		this.applicationContainerLauncher.shutDown();
-		
+
 		logger.info("###### Stopped APPLICATION MASTER ######");
 	}
 }

@@ -16,7 +16,7 @@
 package oz.hadoop.yarn.api.core;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.logging.Log;
@@ -32,7 +32,7 @@ import oz.hadoop.yarn.api.ApplicationContainerProcessor;
  * @author Oleg Zhurakousky
  *
  */
-class JavaProcessLauncher extends ProcessLauncher {
+class JavaProcessLauncher<R> extends ProcessLauncher<R> {
 	
 	private final Log logger = LogFactory.getLog(JavaProcessLauncher.class);
 
@@ -46,8 +46,8 @@ class JavaProcessLauncher extends ProcessLauncher {
 	 * @param containerArguments
 	 * @param containerLivelinesBarrier
 	 */
-	JavaProcessLauncher(ApplicationContainerProcessor applicationContainer, String containerArguments, CountDownLatch containerLivelinesBarrier) {
-		super(containerLivelinesBarrier);
+	JavaProcessLauncher(ApplicationContainerProcessor applicationContainer, String containerArguments) {
+		super();
 		this.containerArguments = containerArguments;
 		this.applicationContainer = applicationContainer;
 	}
@@ -58,31 +58,37 @@ class JavaProcessLauncher extends ProcessLauncher {
 	 * which will trip 'containerLivelinesBarrier' allowing the owning Application Container 
 	 * to finish.
 	 */
+	@SuppressWarnings("unchecked")
 	@Override
-	public void launch() {
+	public R launch() {
 		logger.info("Executing java process");	
-		try {
-			this.executor.execute(new Runnable() {	
-				@Override
-				public void run() {
+		final AtomicReference<Object> result = new AtomicReference<>();
+		this.executor.execute(new Runnable() {
+
+			@Override
+			public void run() {
+				try {
 					byte[] decodedBytes = Base64.decodeBase64(containerArguments);
 					ByteBuffer reply = applicationContainer.process(ByteBuffer.wrap(decodedBytes));		
-					if (reply != null && reply.limit() > 0){
-						reply.rewind();
-						byte[] replyBytes = new byte[reply.limit()];
-						reply.get(replyBytes);
-						if (logger.isDebugEnabled()){
-							logger.debug("[ApplicationContainer REPLY]\n" + new String(replyBytes));
-						}
-					}
 					logger.info("Java process completed successfully");
-					JavaProcessLauncher.this.finish();
+					result.set(reply);
+				} 
+				catch (Exception e) {
+					logger.error("Java process failed.", e);
+					result.set(new RuntimeException(e));
 				}
-			});
-			this.awaitCompletion();
-		} 
-		catch (Exception e) {
-			logger.error("Java process failed.", e);
+				finally {
+					JavaProcessLauncher.this.containerLivelinesBarrier.countDown();
+				}
+			}
+		});
+		this.awaitCompletion();
+		this.finish();
+		Object resultObject = result.get();
+		
+		if (resultObject instanceof Throwable){
+			throw new RuntimeException((Throwable)resultObject);
 		}
+		return (R) resultObject;
 	}
 }

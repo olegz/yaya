@@ -23,7 +23,27 @@ import java.net.InetSocketAddress;
  */
 public interface SocketHandler {
 	
+	/**
+	 * 
+	 * @return
+	 */
 	InetSocketAddress start();
 	
+	/**
+	 * 
+	 * @param force
+	 */
 	void stop(boolean force);
+	
+	/**
+	 * 
+	 * @return
+	 */
+	boolean isRunning();
+	
+	/**
+	 * Blocking method which returns only if this 
+	 * ApplicationContainerClient has been shut down
+	 */
+	public abstract void awaitShutdown();
 }

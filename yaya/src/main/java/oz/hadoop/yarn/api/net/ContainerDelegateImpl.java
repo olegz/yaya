@@ -46,6 +46,8 @@ class ContainerDelegateImpl implements ContainerDelegate {
 	
 	private final InetSocketAddress applicationContainerAddress;
 	
+	private volatile boolean suspended;
+	
 	/**
 	 * 
 	 * @param selectionKey
@@ -77,9 +79,14 @@ class ContainerDelegateImpl implements ContainerDelegate {
 	@Override
 	public void process(ByteBuffer data, ReplyPostProcessor replyPostProcessor) {
 		try {
-			this.executionGovernor.acquire(); 
-			replyPostProcessor.setContainerDelegate(this);
-			this.clientServer.process(selectionKey, data, replyPostProcessor);
+			if (!this.suspended){
+				this.executionGovernor.acquire(); 
+				replyPostProcessor.setContainerDelegate(this);
+				this.clientServer.process(selectionKey, data, replyPostProcessor);
+			}
+			else {
+				logger.warn("This ContainerDelegate is suspended due to its imenent shutdown. No more processes would be accepted");
+			}
 		} 
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
@@ -90,11 +97,13 @@ class ContainerDelegateImpl implements ContainerDelegate {
 	/**
 	 * 
 	 */
-	@Override
 	public void release() {
 		this.executionGovernor.release();
 	}
 	
+	/**
+	 * 
+	 */
 	@Override
 	public boolean available() {
 		return this.executionGovernor.availablePermits() == 1;
@@ -106,5 +115,13 @@ class ContainerDelegateImpl implements ContainerDelegate {
 	@Override
 	public String toString(){
 		return "CD:[" + this.getHost().getAddress().getHostAddress() + "]"; 
+	}
+
+	/**
+	 * 
+	 */
+	@Override
+	public void suspend() {
+		this.suspended = true;
 	}
 }

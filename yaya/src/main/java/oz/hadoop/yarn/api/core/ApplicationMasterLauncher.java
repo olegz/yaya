@@ -15,6 +15,9 @@
  */
 package oz.hadoop.yarn.api.core;
 
+import oz.hadoop.yarn.api.ApplicationContainerProcessor;
+import oz.hadoop.yarn.api.ContainerReplyListener;
+
 
 
 /**
@@ -52,4 +55,13 @@ interface ApplicationMasterLauncher<T> {
 	 * @return
 	 */
 	int liveContainers();
+	
+	/**
+	 * Allow for the registration of the {@link ContainerReplyListener} for the cases where
+	 * you need to deal with replies produced by the {@link ApplicationContainerProcessor}s or commands executed 
+	 * by Application Containers.
+	 *
+	 * @param replyListener
+	 */
+	void registerReplyListener(ContainerReplyListener replyListener);
 }

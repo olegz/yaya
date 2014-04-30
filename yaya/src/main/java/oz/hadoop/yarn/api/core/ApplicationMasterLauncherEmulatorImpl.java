@@ -27,19 +27,19 @@ import oz.hadoop.yarn.api.YayaConstants;
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
 
 /**
- * INTERNAL API
  * 
  * @author Oleg Zhurakousky
  *
  */
-class ApplicationMasterLauncherEmulatorImpl<T> extends AbstractApplicationMasterLauncher<T> {
+public final class ApplicationMasterLauncherEmulatorImpl<T> extends AbstractApplicationMasterLauncher<T> {
 
 	private final ApplicationId applicationId;
+	
 	/**
 	 * 
 	 * @param applicationSpecification
 	 */
-	ApplicationMasterLauncherEmulatorImpl(Map<String, Object> applicationSpecification) {
+	public ApplicationMasterLauncherEmulatorImpl(Map<String, Object> applicationSpecification) {
 		super(applicationSpecification);
 		this.applicationId = new EmulatedApplicationId();
 	}

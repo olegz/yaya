@@ -55,7 +55,7 @@ class ApplicationMasterCallbackSupport {
 	 * @param yarnApplicationMaster
 	 * @return
 	 */
-	protected AMRMClientAsync.CallbackHandler buildResourceManagerCallbackHandler(ApplicationContainerLauncherImpl applicationMasterDelegate) {
+	protected AMRMClientAsync.CallbackHandler buildResourceManagerCallbackHandler(AbstractApplicationContainerLauncher applicationMasterDelegate) {
 		return new ResourceManagerCallbackHandler(applicationMasterDelegate);
 	}
 
@@ -65,9 +65,9 @@ class ApplicationMasterCallbackSupport {
 	 * @param yarnApplicationMaster
 	 * @return
 	 */
-	protected NMClientAsync.CallbackHandler buildNodeManagerCallbackHandler(ApplicationContainerLauncherImpl applicationMasterDelegate) {
+	protected NMClientAsync.CallbackHandler buildNodeManagerCallbackHandler(AbstractApplicationContainerLauncher applicationMasterDelegate) {
 		// noop for now
-		return new NodeManagerCallbaclHandler();
+		return new NodeManagerCallbaclHandler(applicationMasterDelegate);
 	}
 
 	/**
@@ -80,7 +80,10 @@ class ApplicationMasterCallbackSupport {
 	 * during the construction. Therefore current implementation simply logs received events.
 	 */
 	private static class NodeManagerCallbaclHandler implements NMClientAsync.CallbackHandler {
-
+		private final AbstractApplicationContainerLauncher applicationMasterDelegate;
+		public NodeManagerCallbaclHandler(AbstractApplicationContainerLauncher applicationMasterDelegate){
+			this.applicationMasterDelegate = applicationMasterDelegate;
+		}
 		@Override
 		public void onContainerStopped(ContainerId containerId) {
 			logger.info("Received onContainerStopped: " + containerId);
@@ -94,10 +97,12 @@ class ApplicationMasterCallbackSupport {
 		@Override
 		public void onContainerStarted(ContainerId containerId, Map<String, ByteBuffer> allServiceResponse) {
 			logger.info("Received onContainerStarted: " + containerId);
+			applicationMasterDelegate.containerStarted(containerId);
 		}
 
 		@Override
 		public void onStartContainerError(ContainerId containerId, Throwable t) {
+			applicationMasterDelegate.containerStartupErrorReceived(containerId, t);
 			logger.error("Received onStartContainerError: " + containerId, t);
 		}
 
@@ -124,11 +129,11 @@ class ApplicationMasterCallbackSupport {
 
 		private final AtomicInteger completedContainersCounter = new AtomicInteger();
 
-		private final ApplicationContainerLauncherImpl applicationMasterDelegate;
+		private final AbstractApplicationContainerLauncher applicationMasterDelegate;
 		
 		private final List<Container> allocatedContainers = new ArrayList<>();
 
-		public ResourceManagerCallbackHandler(ApplicationContainerLauncherImpl applicationMasterDelegate) {
+		public ResourceManagerCallbackHandler(AbstractApplicationContainerLauncher applicationMasterDelegate) {
 			this.applicationMasterDelegate = applicationMasterDelegate;
 		}
 
@@ -137,7 +142,7 @@ class ApplicationMasterCallbackSupport {
 			logger.info("Received completed contaners callback: " + completedContainers);
 			 for (ContainerStatus containerStatus : completedContainers) {
 				 logger.info("ContainerStatus: " + containerStatus);
-				 this.applicationMasterDelegate.signalContainerCompletion(containerStatus);
+				 this.applicationMasterDelegate.containerCompleted(containerStatus);
 				 this.completedContainersCounter.incrementAndGet();
 			 }
 		}
@@ -150,14 +155,14 @@ class ApplicationMasterCallbackSupport {
 			this.allocatedContainers.addAll(allocatedContainers);
 			logger.info("Received allocated containers callback: " + allocatedContainers);
 			for (final Container allocatedContainer : allocatedContainers) {
-				this.applicationMasterDelegate.launchContainer(allocatedContainer);
+				this.applicationMasterDelegate.containerAllocated(allocatedContainer);
 			}
 		}
 
 		@Override
 		public void onShutdownRequest() {
 			logger.info("Received shut down callback");
-			this.applicationMasterDelegate.initiateShutdown(this.allocatedContainers);
+			this.applicationMasterDelegate.shutdownRequested(this.allocatedContainers);
 		}
 
 		@Override
@@ -173,7 +178,7 @@ class ApplicationMasterCallbackSupport {
 		@Override
 		public void onError(Throwable e) {
 			logger.error("Received error", e);
-			this.applicationMasterDelegate.initiateShutdown(this.allocatedContainers);
+			this.applicationMasterDelegate.errorReceived(e);
 		}
 	}
 

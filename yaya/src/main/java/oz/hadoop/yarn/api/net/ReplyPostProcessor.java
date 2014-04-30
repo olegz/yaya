@@ -25,22 +25,37 @@ public abstract class ReplyPostProcessor {
 	
 	private volatile ContainerDelegate containerDelegate;
 	
-	public void postProcess(ByteBuffer reply) {
+	/**
+	 * 
+	 * @param replyBuffer
+	 */
+	public void postProcess(ByteBuffer replyBuffer) {
 		try {
-			this.doProcess(reply);
+			this.doProcess(replyBuffer);
 		} 
 		finally {
 			this.release();
 		}
 	}
 	
-	public abstract void doProcess(ByteBuffer reply);
+	/**
+	 * 
+	 * @param replyBuffer
+	 */
+	public abstract void doProcess(ByteBuffer replyBuffer);
 	
+	/**
+	 * 
+	 * @param containerDelegate
+	 */
 	void setContainerDelegate(ContainerDelegate containerDelegate) {
 		this.containerDelegate = containerDelegate;
 	}
 	
+	/**
+	 * 
+	 */
 	private void release(){
-		this.containerDelegate.release();
+		((ContainerDelegateImpl)this.containerDelegate).release();
 	}
 }

@@ -46,24 +46,11 @@ public class CommandBasedYarnApplicationClusterDemo {
 	 */
 	public static void main(String[] args) throws Exception {
 		YarnConfiguration yarnConfiguration = new YarnConfiguration();
-		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping google.com").
+		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 google.com").
 								containerCount(4).
 								withApplicationMaster(yarnConfiguration).
 									build("CommandBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
-		
-		// let it run for a bit
-		Thread.sleep(5000);
-		/*
-		 * As you can see, the command we are executing will result in the never ending process.
-		 * So executing yarnApplication.shutDown() will not do you any good in this case.
-		 * The terminate() method will terminate running process(s).
-		 */
-		yarnApplication.terminate();
-		/*
-		 * If running in the local mini-cluster check target/LOCAL_YARN_CLUSTER directory of mini-cluster project 
-		 * for application logs
-		 */
 	}
 }

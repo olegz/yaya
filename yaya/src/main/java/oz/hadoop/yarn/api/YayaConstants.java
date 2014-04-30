@@ -64,4 +64,6 @@ public interface YayaConstants {
 	String COMMAND = "COMMAND";
 	
 	String JAVA_COMMAND = "JAVA_COMMAND";
+	
+	String CLIENTS_JOIN_TIMEOUT = "CLIENTS_JOIN_TIMEOUT";
 }

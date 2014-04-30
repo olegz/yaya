@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -33,6 +32,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
+import oz.hadoop.yarn.api.ContainerReplyListener;
 import oz.hadoop.yarn.api.YayaConstants;
 import oz.hadoop.yarn.api.net.ApplicationContainerServer;
 import oz.hadoop.yarn.api.net.ContainerDelegate;
@@ -63,9 +63,14 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	
 	protected final ScheduledExecutorService executor;
 	
+	private final int awaitAllContainersTimeout;
+	
 	private volatile ApplicationContainerServer clientServer;
 	
+	private volatile ContainerReplyListener replyListener;
+	
 	private T launchResult;
+	
 	
 	/**
 	 * 
@@ -83,6 +88,16 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		this.executor = Executors.newScheduledThreadPool(2);
 		this.finite = (StringUtils.hasText(this.applicationContainerSpecification.getString(YayaConstants.COMMAND)) ||
 				this.applicationContainerSpecification.getString(YayaConstants.CONTAINER_ARG) != null) ? true : false;
+		String cjt = (String) this.applicationSpecification.get(YayaConstants.CLIENTS_JOIN_TIMEOUT);
+		this.awaitAllContainersTimeout = StringUtils.hasText(cjt) ? Integer.parseInt(cjt) : 30;
+	}
+	
+	/**
+	 * 
+	 */
+	@Override
+	public void registerReplyListener(ContainerReplyListener replyListener) {
+		this.replyListener = replyListener;
 	}
 	
 	/**
@@ -115,39 +130,39 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 
 		int applicationContainerCount = this.applicationContainerSpecification.getInt(YayaConstants.CONTAINER_COUNT);
 		
-		this.initApplicationContainerServer(applicationContainerCount, finite);
+		this.initApplicationContainerServer(applicationContainerCount, this.finite);
 		
-		ApplicationId launchedApplication = this.doLaunch(applicationContainerCount);
-		if (logger.isInfoEnabled()){
-			logger.info("Launched application: " + launchedApplication);
+		if (this.replyListener != null){
+			this.clientServer.registerReplyListener(this.replyListener);
 		}
+		
+		this.doLaunch(applicationContainerCount);
 		
 		if (logger.isDebugEnabled()){
 			logger.debug("Establishing connection with all " + applicationContainerCount + " Application Containers");
 		}
-		if (!this.clientServer.awaitAllClients(30)){
-			shutDown();
+		
+		if (logger.isInfoEnabled()){
+			logger.info("Awaiting " + this.awaitAllContainersTimeout + " seconds for all Application Containers to report");
+		}
+		if (!this.clientServer.awaitAllClients(this.awaitAllContainersTimeout)){
+			this.clientServer.stop(true);
+			this.close();
 			throw new IllegalStateException("Failed to establish connection with all Application Containers. Application shutdown");
 		}
 		if (logger.isInfoEnabled()){
 			logger.info("Established connection with all " + applicationContainerCount + " Application Containers");
 		}
-		this.launchResult = this.buildLaunchResult(finite);
+		this.launchResult = this.buildLaunchResult(this.finite);
 		return this.launchResult;
 	}
 	
 	/**
 	 * 
 	 */
-	@Override
 	public void shutDown() {
-		if (this.finite){
-			if (this.isRunning()){
-				this.close(false);
-			}
-		}
-		else {
-			this.close(false);
+		if (this.clientServer != null){
+			this.clientServer.stop(false);
 		}
 	}
 	
@@ -156,7 +171,9 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	 */
 	@Override
 	public void terminate() {
-		this.close(true);
+		if (this.clientServer != null){
+			this.clientServer.stop(true);
+		}
 	}
 	
 	/**
@@ -186,7 +203,8 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 					}
 				});
 			}
-			this.executor.execute(new ApplicationContainerExecutionMonitor(completionLatch));
+			
+			this.clientServer.stop(false);
 			returnValue = null;
 		}
 		return returnValue;
@@ -206,12 +224,10 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	 * 
 	 * @param force
 	 */
-	private void close(boolean force) {
+	private void close() {
 		if (this.launchResult instanceof DataProcessorImpl){
 			((DataProcessorImpl)this.launchResult).stop();
 		}
-		logger.debug("Shutting down ApplicationContainerServer");
-		this.clientServer.stop(force);
 		logger.debug("Shutting down executor");
 		this.executor.shutdown();
 		ApplicationId shutDownApplication = this.doShutDown();
@@ -239,8 +255,17 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		try {
 			InetSocketAddress address = this.buildSocketAddress();
 			Constructor<ApplicationContainerServer> clCtr = ReflectionUtils.getInvocableConstructor(
-					ApplicationContainerServer.class.getPackage().getName() + ".ApplicationContainerServerImpl", InetSocketAddress.class, int.class, boolean.class);
-			ApplicationContainerServer cs = clCtr.newInstance(address, expectedClientContainerCount, finite);
+					ApplicationContainerServer.class.getPackage().getName() + ".ApplicationContainerServerImpl", InetSocketAddress.class, int.class, boolean.class, Runnable.class);
+			
+			ApplicationContainerServer cs = clCtr.newInstance(address, expectedClientContainerCount, finite, new Runnable() {	
+				@Override
+				public void run() {
+					if (logger.isInfoEnabled()){
+						logger.info("Shutting down Application Master");
+					}
+					close();
+				}
+			});
 			return cs;
 		} 
 		catch (Exception e) {
@@ -258,37 +283,6 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		} 
 		catch (UnknownHostException e) {
 			throw new IllegalStateException("Failed to get SocketAddress", e);
-		}
-	}
-	
-	/**
-	 * 
-	 */
-	private class ApplicationContainerExecutionMonitor implements Runnable {
-		private final CountDownLatch completionLatch;
-		
-		ApplicationContainerExecutionMonitor(CountDownLatch completionLatch){
-			this.completionLatch = completionLatch;
-		}
-
-		@Override
-		public void run() {
-			logger.trace("Waiting for Application Container completion");
-			boolean completed = false;
-			try {
-				completed = this.completionLatch.await(5, TimeUnit.MILLISECONDS);
-			} 
-			catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				logger.warn("Interrupted while waiting for Application Containers to finish", e);
-				completed = true;
-			}
-			if (completed){
-				close(false);
-			}
-			else {
-				AbstractApplicationMasterLauncher.this.executor.schedule(this, 10, TimeUnit.MILLISECONDS);
-			}
 		}
 	}
 }
