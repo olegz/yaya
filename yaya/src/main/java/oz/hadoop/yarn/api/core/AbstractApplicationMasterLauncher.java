@@ -203,8 +203,16 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 					}
 				});
 			}
-			
-			this.clientServer.stop(false);
+			/*
+			 * By initiating a graceful shutdown we simply sending a signal
+			 * for an application to stop once complete.
+			 */
+			this.executor.execute(new Runnable() {		
+				@Override
+				public void run() {
+					clientServer.stop(false);
+				}
+			});
 			returnValue = null;
 		}
 		return returnValue;

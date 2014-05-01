@@ -54,6 +54,7 @@ public class JavaBasedYarnApplicationClusterDemo {
 									build("JavaBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
+		System.out.println();
 		/*
 		 * This demo demonstrates self-shutdown where application will exit
 		 * upon completion of tasks by all containers.
@@ -73,6 +74,11 @@ public class JavaBasedYarnApplicationClusterDemo {
 			String strMessage = new String(inputBytes);
 			strMessage = new StringBuilder(strMessage).reverse().toString();
 			System.out.println("Processing input: " + strMessage);
+			try {
+				Thread.sleep(5000);
+			} catch (Exception e) {
+				// TODO: handle exception
+			}
 			return null;
 			// You can also return ByteBuffer, but since its a finite container
 			// the contents of the returned ByteBuffer will be logged (see JavaBasedYarnApplicationEmulatorDemo)

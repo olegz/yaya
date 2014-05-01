@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 
 import org.junit.Test;
 
@@ -54,6 +55,9 @@ public class ApplicationMasterTests {
 	
 		ApplicationMasterLauncher<Void> amLauncher = new ApplicationMasterLauncherEmulatorImpl<>(applicationSpec);
 		amLauncher.launch();
+		while (amLauncher.isRunning()){
+			LockSupport.parkNanos(1000000);
+		}
 		assertFalse(amLauncher.isRunning());
 	}
 	
@@ -218,6 +222,9 @@ public class ApplicationMasterTests {
 			}
 		});
 		amLauncher.launch();
+		while (amLauncher.isRunning()){
+			LockSupport.parkNanos(1000000);
+		}
 		assertFalse(amLauncher.isRunning());
 		assertEquals(expectedContainers, replySucceses.get());
 	}
