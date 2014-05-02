@@ -49,8 +49,8 @@ public class InteractableYarnApplicationContainersEmulatorDemo {
 	public static void main(String[] args) throws Exception {
 
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
-				containerCount(4).
-				withApplicationMaster(new YarnConfiguration()).
+				containerCount(8).
+				withApplicationMaster().
 					maxAttempts(2).
 					build("InteractableYarnApplicationContainersClusterDemo");
 

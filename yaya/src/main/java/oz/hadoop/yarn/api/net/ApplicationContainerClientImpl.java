@@ -98,9 +98,7 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 	 */
 	@Override
 	void read(SelectionKey selectionKey, ByteBuffer messageBuffer) throws IOException {
-		if (logger.isInfoEnabled()){
-			logger.info("Buffered full message. Releasing to handler");
-		}
+		logger.debug("Buffered full message. Releasing to handler");
 		this.getExecutor().execute(new MessageProcessor(messageBuffer, selectionKey));
 	}
 	
