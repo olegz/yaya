@@ -40,10 +40,6 @@ public class CommandBasedYarnApplicationEmulatorDemo {
 									build("CommandBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
-		/*
-		 * Unlike its cluster based counterpart (see CommandBasedYarnApplicationClusterDemo),
-		 * this demo demonstrates self-shutdown where application will exit
-		 * upon completion of tasks by all containers.
-		 */
+		yarnApplication.awaitFinish();
 	}
 }

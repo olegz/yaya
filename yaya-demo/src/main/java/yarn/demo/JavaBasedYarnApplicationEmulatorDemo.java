@@ -46,10 +46,7 @@ public class JavaBasedYarnApplicationEmulatorDemo {
 					build("JavaBasedYarnApplicationDemo");
 
 		yarnApplication.launch();
-		/*
-		 * This demo demonstrates self-shutdown where application will exit
-		 * upon completion of tasks by all containers.
-		 */
+		yarnApplication.awaitFinish();
 	}
 	
 	/**

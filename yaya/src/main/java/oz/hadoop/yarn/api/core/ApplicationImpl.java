@@ -117,4 +117,11 @@ class ApplicationImpl<T> implements YarnApplication<T> {
 			LockSupport.parkNanos(1000000);
 		}
 	}
+
+	@Override
+	public void awaitFinish() {
+		while (this.isRunning()){
+			LockSupport.parkNanos(1000000);
+		}
+	}
 }

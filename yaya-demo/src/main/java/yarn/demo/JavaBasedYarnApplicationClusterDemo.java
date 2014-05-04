@@ -15,13 +15,18 @@
  */
 package yarn.demo;
 
+import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.Random;
 
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+
+import demo.utils.MiniClusterUtils;
 
 import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
+import oz.hadoop.yarn.api.utils.ConfigUtils;
 
 /**
  * Demo of Application Container(s) implemented as Java process and runs in 
@@ -47,6 +52,10 @@ public class JavaBasedYarnApplicationClusterDemo {
 	 * by executing StartMiniCluster.java first.
 	 */
 	public static void main(String[] args) throws Exception {
+		MiniClusterUtils.startMiniCluster();
+
+		ConfigUtils.setConfig(new File("mini-cluster-config"));
+		
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ReverseMessageContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
 								containerCount(4).
 								withApplicationMaster(new YarnConfiguration()).
@@ -54,11 +63,9 @@ public class JavaBasedYarnApplicationClusterDemo {
 									build("JavaBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
-		System.out.println();
-		/*
-		 * This demo demonstrates self-shutdown where application will exit
-		 * upon completion of tasks by all containers.
-		 */
+		yarnApplication.awaitFinish();
+		
+		MiniClusterUtils.stoptMiniCluster();
 	}
 	
 	/**
@@ -68,17 +75,18 @@ public class JavaBasedYarnApplicationClusterDemo {
 	public static class ReverseMessageContainer implements ApplicationContainerProcessor {
 		@Override
 		public ByteBuffer process(ByteBuffer inputMessage) {
+			
+			try {
+				Thread.sleep(new Random().nextInt(5000));
+			} catch (Exception e) {
+				// TODO: handle exception
+			}
 			inputMessage.rewind();
 			byte[] inputBytes = new byte[inputMessage.limit()];
 			inputMessage.get(inputBytes);
 			String strMessage = new String(inputBytes);
 			strMessage = new StringBuilder(strMessage).reverse().toString();
-			System.out.println("Processing input: " + strMessage);
-			try {
-				Thread.sleep(5000);
-			} catch (Exception e) {
-				// TODO: handle exception
-			}
+			System.out.println("Processed input into: " + strMessage);
 			return null;
 			// You can also return ByteBuffer, but since its a finite container
 			// the contents of the returned ByteBuffer will be logged (see JavaBasedYarnApplicationEmulatorDemo)

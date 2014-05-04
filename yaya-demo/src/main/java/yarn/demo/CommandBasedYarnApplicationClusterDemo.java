@@ -15,15 +15,24 @@
  */
 package yarn.demo;
 
+import java.io.File;
+
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
+import oz.hadoop.yarn.api.utils.ConfigUtils;
+import demo.utils.MiniClusterUtils;
 
 /**
  * Demo of Application Container(s) implemented as non-Java process.
  * 
- * It is setup to run in the valid cluster
+ * It is setup to run in the Mini Cluster which will be built (if needed), 
+ * started and stopped as part of this demo.
+ * To test this demo with a real cluster comment/remove DemoUtils.start*stop* methods
+ * and call ConfigUtils.setConfig(..) with valid configuration file or directory with configuration files 
+ * pointing to your cluster. Sample configuration files for remote cluster are located in 
+ * remote-config directory of this project.
  * 
  * There is an identical demo that runs in YARN Emulator. Please see 
  * CommandBasedYarnApplicationEmulatorDemo.java in this package.
@@ -34,23 +43,22 @@ import oz.hadoop.yarn.api.YarnAssembly;
 public class CommandBasedYarnApplicationClusterDemo {
 	
 	/**
-	 * Before running ensure that properly configured yarn-site.xml are copied
-	 * into src/main/resources. You can use the yarn-site.xml from local-config
-	 * directory of this project. The newly checkout out project is already
-	 * setup for this.
-	 * Examples for remote configurations are located in remote-config directory,
-	 * but you might as well use the ones from your installed cluster.
-	 *
 	 * If running in Mini-Cluster (see yarn-test-cluster project), make sure you start it
 	 * by executing StartMiniCluster.java first.
 	 */
 	public static void main(String[] args) throws Exception {
-		YarnConfiguration yarnConfiguration = new YarnConfiguration();
+		MiniClusterUtils.startMiniCluster();
+
+		ConfigUtils.setConfig(new File("mini-cluster-config"));
+
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 google.com").
 								containerCount(4).
-								withApplicationMaster(yarnConfiguration).
+								withApplicationMaster(new YarnConfiguration()).
 									build("CommandBasedYarnApplicationDemo");
 		
 		yarnApplication.launch();
+		yarnApplication.awaitFinish();
+		
+		MiniClusterUtils.stoptMiniCluster();
 	}
 }

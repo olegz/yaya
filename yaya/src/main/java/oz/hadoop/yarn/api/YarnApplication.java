@@ -60,6 +60,8 @@ public interface YarnApplication<T> {
 	
 	void awaitLaunch();
 	
+	void awaitFinish();
+	
 	/**
 	 * Will attempt shut down this application gracefully, allowing Application Container
 	 * tasks running as commands or java {@link ApplicationContainerProcessor}s to finish

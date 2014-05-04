@@ -23,14 +23,13 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 /**
- * INTERNAL API
  * 
  * Base class for implementing launchers. See {@link CommandProcessLauncher} and {@link JavaProcessLauncher}
  * 
  * @author Oleg Zhurakousky
  *
  */
-abstract class ProcessLauncher<R> {
+public abstract class ProcessLauncher<R> {
 	
 	private final Log logger = LogFactory.getLog(ProcessLauncher.class);
 	

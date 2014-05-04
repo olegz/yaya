@@ -43,7 +43,7 @@ public class LocalApplicationLaunchTests {
 	
 	private static AtomicInteger flag = new AtomicInteger();
 	
-	@Test//(timeout=10000)
+	@Test(timeout=10000)
 	public void validateWithReplyListener() throws Exception {
 		final AtomicInteger repliesCounter = new AtomicInteger();
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class).
@@ -195,6 +195,9 @@ public class LocalApplicationLaunchTests {
 													build("sample-yarn-application");
 		assertFalse(yarnApplication.isRunning());
 		yarnApplication.launch();
+		while (yarnApplication.isRunning()){
+			LockSupport.parkNanos(1000000);
+		}
 		assertEquals(0, yarnApplication.liveContainers());
 		assertFalse(yarnApplication.isRunning());
 	}
@@ -262,6 +265,9 @@ public class LocalApplicationLaunchTests {
 		
 		assertEquals(0, yarnApplication.liveContainers());
 		yarnApplication.launch();
+		while (yarnApplication.isRunning()){
+			LockSupport.parkNanos(1000000);
+		}
 		assertFalse(yarnApplication.isRunning());
 	}
 	
@@ -304,6 +310,9 @@ public class LocalApplicationLaunchTests {
 		assertEquals(0, yarnApplication.liveContainers());
 		assertFalse(yarnApplication.isRunning());
 		yarnApplication.launch();
+		while (yarnApplication.isRunning()){
+			LockSupport.parkNanos(1000000);
+		}
 		assertFalse(yarnApplication.isRunning());
 	}
 	

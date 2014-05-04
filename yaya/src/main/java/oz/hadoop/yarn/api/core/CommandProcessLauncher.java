@@ -26,14 +26,12 @@ import oz.hadoop.yarn.api.utils.PrintUtils;
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
 
 /**
- * INTERNAL API
- * 
  * Launcher for launching command-based tasks
  * 
  * @author Oleg Zhurakousky
  *
  */
-class CommandProcessLauncher extends ProcessLauncher<Void> {
+public class CommandProcessLauncher extends ProcessLauncher<Void> {
 	
 	private final Log logger = LogFactory.getLog(CommandProcessLauncher.class);
 

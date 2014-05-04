@@ -18,8 +18,6 @@ package yarn.demo;
 import java.nio.ByteBuffer;
 import java.util.Random;
 
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
-
 import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 import oz.hadoop.yarn.api.ContainerReplyListener;
 import oz.hadoop.yarn.api.DataProcessor;

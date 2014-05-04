@@ -15,16 +15,20 @@
  */
 package yarn.demo;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Random;
 
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+
+import demo.utils.MiniClusterUtils;
 
 import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 import oz.hadoop.yarn.api.ContainerReplyListener;
 import oz.hadoop.yarn.api.DataProcessor;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
+import oz.hadoop.yarn.api.utils.ConfigUtils;
 
 /**
  * This demo showcases long-running reusable containers you can interact with
@@ -48,7 +52,10 @@ public class InteractableYarnApplicationContainersClusterDemo {
 	 * Ensure valid YarnConfiguration is available in the classpath, then run.
 	 */
 	public static void main(String[] args) throws Exception {
+		MiniClusterUtils.startMiniCluster();
 
+		ConfigUtils.setConfig(new File("mini-cluster-config"));
+		
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
 				containerCount(4).
 				withApplicationMaster(new YarnConfiguration()).
@@ -88,6 +95,8 @@ public class InteractableYarnApplicationContainersClusterDemo {
 		
 		yarnApplication.shutDown();
 		System.out.println("Processes completed since launch: " + dataProcessor.completedSinceStart());
+		
+		MiniClusterUtils.stoptMiniCluster();
 	}
 	
 	/**

@@ -70,6 +70,7 @@ abstract class AbstractContainer {
 		}
 		
 		this.yarnConfig = new YarnConfiguration();
+		
 		this.applicationSpecification = applicationSpecification;
 		this.containerSpec = new PrimitiveImmutableTypeMap((Map<String, Object>) this.applicationSpecification.get(YayaConstants.CONTAINER_SPEC));
 		

@@ -146,6 +146,7 @@ project('yaya-demo') {
 
 project('yarn-test-cluster') {
 	description = 'Local YARN cluster'
+	mainClassName="oz.hadoop.yarn.test.cluster.StartMiniCluster"
 	dependencies {
 	    compile "org.apache.hadoop:hadoop-yarn-client:$hadoopVersion"
 	    compile "org.apache.hadoop:hadoop-common:$hadoopVersion"

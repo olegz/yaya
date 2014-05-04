@@ -25,14 +25,12 @@ import org.apache.commons.logging.LogFactory;
 import oz.hadoop.yarn.api.ApplicationContainerProcessor;
 
 /**
- * INTERNAL API
- * 
  * Launcher for launching java-based tasks
  * 
  * @author Oleg Zhurakousky
  *
  */
-class JavaProcessLauncher<R> extends ProcessLauncher<R> {
+public class JavaProcessLauncher<R> extends ProcessLauncher<R> {
 	
 	private final Log logger = LogFactory.getLog(JavaProcessLauncher.class);
 

@@ -33,6 +33,11 @@
    <value>localhost</value>
     <description>The hostname of the RM.</description>
  </property>
+ <property>
+    <description>The http address of the RM web application.</description>
+    <name>yarn.resourcemanager.webapp.address</name>
+    <value>${yarn.resourcemanager.hostname}:8080</value>
+  </property>
   <property>
     <name>yarn.scheduler.minimum-allocation-mb</name>
     <value>128</value>
@@ -62,5 +67,10 @@
     <name>yarn.nodemanager.resource.cpu-vcores</name>
     <value>4</value>
     <description>Number of CPU cores that can be allocated for containers.</description>
+  </property>
+  
+  <property>
+  	<name>yarn.resourcemanager.container.liveness-monitor.interval-ms</name>
+  	<value>1000</value>
   </property>
 </configuration>

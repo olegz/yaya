@@ -29,47 +29,65 @@ public class InvestementSimulation  {
 	
 	private final Random random = new Random();
 	
-	private final int sigma;
+//	private final int sigma;
+//	
+//	private final int avReturn;
+//	
+//	private final int anualInvestement;
+//	
+//	private final int cycle;
+//	
+//	private final int initialInvestment;
+//	
+//	private final int simulations;
 	
-	private final int avReturn;
+	private volatile ByteBuffer simulationResults;
 	
-	private final int anualInvestement;
-	
-	private final int cycle;
-	
-	private final int initialInvestment;
-	
-	private final int simulations;
-	
-	private final ByteBuffer simulationResults;
-	
-	private final ByteBuffer cycleResults;
+	private volatile  ByteBuffer cycleResults;
 	
 	private final FsByteBufferPersister persister;
+	
+	private final DecimalFormat df = new DecimalFormat("#################.00");
 	
 	/**
 	 * 
 	 * @param input
 	 */
-	public InvestementSimulation(ByteBuffer input, FsByteBufferPersister persister){
+	public InvestementSimulation(FsByteBufferPersister persister){
 		this.persister = persister;
-		input.rewind();
-		this.sigma = input.getInt();
-		this.avReturn = input.getInt();
-		this.anualInvestement = input.getInt();
-		this.cycle = input.getInt();
-		this.initialInvestment = input.getInt();
-		this.simulations = input.getInt();
-		this.simulationResults = ByteBuffer.allocate(simulations * 8);
-		this.cycleResults = ByteBuffer.allocate(cycle * 4);
+//		input.rewind();
+//		this.sigma = input.getInt();
+//		this.avReturn = input.getInt();
+//		this.anualInvestement = input.getInt();
+//		int cycle = input.getInt(12);
+//		this.initialInvestment = input.getInt();
+//		int simulations = input.getInt(20);
+//		this.simulationResults = ByteBuffer.allocate(simulations * 8);
+//		this.cycleResults = ByteBuffer.allocate(cycle * 4 * simulations);
 	}
 
 	/**
 	 * 
 	 * @return
 	 */
-	public ByteBuffer runSimulation() {
-		DecimalFormat df = new DecimalFormat("#################.00");
+	public ByteBuffer runSimulation(ByteBuffer input) {
+		int sigma = input.getInt(0);
+		int avReturn = input.getInt(4);
+		int anualInvestement = input.getInt(8);
+		int cycle = input.getInt(12);
+		int initialInvestment = input.getInt(16);
+		int simulations = input.getInt(20);
+		if (simulationResults == null){
+			this.simulationResults = ByteBuffer.allocate(simulations * 8);
+			System.out.println("CREATED");
+		}
+		if (cycleResults == null){
+			this.cycleResults = ByteBuffer.allocate(cycle * 4 * simulations);
+			System.out.println("CREATED");
+		}
+		this.simulationResults.clear();
+		this.cycleResults.clear();
+		
 		for (int i = 0; i < simulations; i++) {
 			double anualIncrease = initialInvestment; // B1 init inv
 			double normInv = MathUtils.compute(random.nextDouble(), avReturn, sigma)/100;
@@ -77,15 +95,13 @@ public class InvestementSimulation  {
 			do {
 				anualIncrease = (float) (anualIncrease * (1 + (double)normInv) + anualInvestement);
 				cycleResults.putFloat(initialInvestment);
-//				System.out.println(df.format(anualIncrease));
 			} while (++couneter < cycle); // B4 duration
-//			System.out.println("===============");
-			cycleResults.flip();
-			if (this.persister != null){
-				// write cycle buffer to HDFS
-				this.persister.persist(this.getClass().getSimpleName(), cycleResults);
-			}
-			cycleResults.clear();
+//			cycleResults.flip();
+//			if (this.persister != null){
+//				// write cycle buffer to HDFS
+//				this.persister.persist(this.getClass().getSimpleName(), cycleResults);
+//			}
+//			cycleResults.clear();
 			simulationResults.putDouble(anualIncrease);
 		}
 		simulationResults.flip();
@@ -98,9 +114,15 @@ public class InvestementSimulation  {
 		results.putDouble(stddev);
 		
 		
-		System.out.println(anualInvestement + ":" + sigma + ":" + avReturn + " - MEAN: " + df.format(mean) + "; " +
-					"MEDIAN: " + df.format(median) + "; STDV: " + df.format(stddev));
+//		System.out.println(anualInvestement + ":" + sigma + ":" + avReturn + " - MEAN: " + df.format(mean) + "; " +
+//					"MEDIAN: " + df.format(median) + "; STDV: " + df.format(stddev));
 		simulationResults.clear();
+		cycleResults.flip();
+		if (this.persister != null){
+			// write cycle buffer to HDFS
+			this.persister.persist(this.getClass().getSimpleName(), cycleResults);
+		}
+		cycleResults.clear();
 		results.flip();
 		return results;
 	}
