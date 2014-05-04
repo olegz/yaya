@@ -16,6 +16,8 @@
 package oz.hadoop.yarn.api.utils;
 
 import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 
 import org.springframework.util.Assert;
 import org.springframework.util.FileCopyUtils;
@@ -37,7 +39,17 @@ public class ConfigUtils {
 		Assert.isTrue(configurationPath.exists(), "'configurationPath' must exist");
 		
 		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-	    File classpathRoot = new File(classLoader.getResource("").getPath());
+		URL configUrl = null;
+		try {
+			configUrl = new URL("file://" + configurationPath.getAbsolutePath());
+		} catch (Exception e) {
+			throw new IllegalArgumentException("Failed to construct URL for " + configurationPath, e);
+		}
+		URLClassLoader urlClassLoader = new URLClassLoader(new URL[]{configUrl}, classLoader);
+		Thread.currentThread().setContextClassLoader(urlClassLoader);
+		
+		/*
+		File classpathRoot = new File(classLoader.getResource("").getPath());
 	    if (configurationPath.isDirectory()){
 			String[] configs = configurationPath.list();
 			for (String configFileName : configs) {
@@ -53,6 +65,7 @@ public class ConfigUtils {
 			}
 			doCopy(configurationPath, configFileOnClassPath);
     	}
+    	*/
 	}
 	
 	/**
