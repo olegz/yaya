@@ -18,7 +18,6 @@ package oz.hadoop.yarn.api.core;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
-import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
@@ -40,7 +39,6 @@ import oz.hadoop.yarn.api.DataProcessor;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
 import oz.hadoop.yarn.api.YayaConstants;
-import oz.hadoop.yarn.api.utils.ConfigUtils;
 import oz.hadoop.yarn.api.utils.MiniClusterUtils;
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
 

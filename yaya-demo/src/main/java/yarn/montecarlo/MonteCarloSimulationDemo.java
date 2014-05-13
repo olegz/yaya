@@ -119,15 +119,19 @@ public class MonteCarloSimulationDemo {
 	 */
 	private static int prepare(String[] args) {
 		int containerCount = 2;
-		String configPath = "mini-cluster-config";
+		String configPath = "/Users/oleg/HADOOP_DEV/yaya/yarn-test-cluster/src/main/resources";
+		boolean startMiniCluster = true;
 		if (args != null){
 			if (args.length > 0){
 				containerCount = Integer.parseInt(args[0]);
 			}
 			if (args.length > 1){
 				configPath = args[1];
+				startMiniCluster = false;
 			}
-			MiniClusterUtils.startMiniCluster();
+			if (startMiniCluster){
+				MiniClusterUtils.startMiniCluster();
+			}
 		}
 		File configLocation = new File(configPath);
 		ConfigUtils.addToClasspath(configLocation);
