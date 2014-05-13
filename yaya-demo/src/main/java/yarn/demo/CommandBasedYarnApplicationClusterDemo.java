@@ -47,7 +47,7 @@ public class CommandBasedYarnApplicationClusterDemo {
 	 * by executing StartMiniCluster.java first.
 	 */
 	public static void main(String[] args) throws Exception {
-		oz.hadoop.yarn.api.utils.MiniClusterUtils.startMiniCluster();
+		MiniClusterUtils.startMiniCluster();
 
 		ConfigUtils.addToClasspath(new File("mini-cluster-config"));
 
