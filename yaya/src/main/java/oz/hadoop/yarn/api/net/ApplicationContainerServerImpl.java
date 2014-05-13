@@ -112,7 +112,9 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	@Override
 	public boolean awaitAllClients(long timeOutInSeconds) {
 		try {
+			System.out.println("STARTING TO WAIT");
 			boolean connected = this.expectedClientContainersMonitor.await(timeOutInSeconds, TimeUnit.SECONDS);
+			System.out.println("DONE WAITING. . ." + connected);
 			return connected;
 		} 
 		catch (InterruptedException e) {
