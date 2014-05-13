@@ -156,6 +156,7 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		
 		if (!this.clientServer.awaitAllClients(this.awaitAllContainersTimeout)){
 			this.clientServer.stop(true);
+			System.out.println("Returned from Await");
 			throw new IllegalStateException("Failed to establish connection with all Application Containers. Application shutdown");
 		}
 //		this.running = true;
