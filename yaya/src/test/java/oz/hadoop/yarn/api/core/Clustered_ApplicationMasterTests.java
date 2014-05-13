@@ -17,8 +17,8 @@ package oz.hadoop.yarn.api.core;
 
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
-import static junit.framework.Assert.fail;
 
+import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
@@ -27,11 +27,11 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import oz.hadoop.yarn.api.ApplicationContainerProcessor;
@@ -40,6 +40,7 @@ import oz.hadoop.yarn.api.DataProcessor;
 import oz.hadoop.yarn.api.YarnApplication;
 import oz.hadoop.yarn.api.YarnAssembly;
 import oz.hadoop.yarn.api.YayaConstants;
+import oz.hadoop.yarn.api.utils.ConfigUtils;
 import oz.hadoop.yarn.api.utils.MiniClusterUtils;
 import oz.hadoop.yarn.api.utils.ReflectionUtils;
 
@@ -47,7 +48,7 @@ import oz.hadoop.yarn.api.utils.ReflectionUtils;
  * @author Oleg Zhurakousky
  *
  */
-@Ignore
+//@Ignore
 public class Clustered_ApplicationMasterTests {
 	
 	@Before
@@ -82,8 +83,10 @@ public class Clustered_ApplicationMasterTests {
 		assertFalse(yarnApplication.isRunning());
 	}
 	
+	//========
 	@Test
 	public void validateFiniteContainerSelfShutdownWithProcessException() throws Exception {
+//		ConfigUtils.addToClasspath(new File("/Users/oleg/HADOOP_DEV/yaya/yarn-test-cluster/src/main/resources"));
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ContainerThrowingExceptionRandomly.class, ByteBuffer.wrap("hello".getBytes())).
 							containerCount(4).
 							withApplicationMaster(new YarnConfiguration()).build("validateFiniteContainerSelfShutdownWithProcessException");
@@ -106,6 +109,7 @@ public class Clustered_ApplicationMasterTests {
 	
 	@Test
 	public void validateReusableContainerGracefulShutdownNoTaskSubmitted() throws Exception {
+//		ConfigUtils.addToClasspath(new File("/Users/oleg/HADOOP_DEV/yaya/yarn-test-cluster/src/main/resources"));
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(ContainerWithRandomDelay.class).
 				containerCount(4).
 				withApplicationMaster(new YarnConfiguration()).build("validateReusableContainerGracefulShutdownNoTaskSubmitted");
@@ -115,8 +119,13 @@ public class Clustered_ApplicationMasterTests {
 		assertFalse(yarnApplication.isRunning());
 	}
 	
+	/**
+	 * Validates that application with long running containers can be shut down gracefully (via shutdown method)
+	 * after all currently submitted tasks have finished
+	 */
 	@Test
 	public void validateReusableContainerGracefulShutdownAfterAllTasksSubmitted() throws Exception {
+//		ConfigUtils.addToClasspath(new File("/Users/oleg/HADOOP_DEV/yaya/yarn-test-cluster/src/main/resources"));
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(ContainerWithRandomDelay.class).
 				containerCount(4).
 				withApplicationMaster(new YarnConfiguration()).build("validateReusableContainerGracefulShutdownAfterAllTasksSubmitted");
@@ -140,20 +149,21 @@ public class Clustered_ApplicationMasterTests {
 		assertFalse(yarnApplication.isRunning());
 	}
 	
+	/**
+	 * Validates ability for long running containers with long running tasks to terminate.
+	 * In this test there should see no REPLY messages coming in.
+	 */
 	@Test
-	public void validateReusableContainerShuttingDownBeforeAllTasksFinished() throws Exception {
-		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(ContainerWithRandomDelay.class).
+	public void validateReusableContainerTermination() throws Exception {
+//		ConfigUtils.addToClasspath(new File("/Users/oleg/HADOOP_DEV/yaya/yarn-test-cluster/src/main/resources"));
+		final YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(ContainerWithLongRunningLoop.class).
 				containerCount(4).
-				withApplicationMaster(new YarnConfiguration()).build("validateReusableContainerGracefulShutdownAfterAllTasksSubmitted");
+				withApplicationMaster(new YarnConfiguration()).build("validateReusableContainerTermination");
+		final AtomicBoolean replies = new AtomicBoolean();
 		yarnApplication.registerReplyListener(new ContainerReplyListener() {
 			@Override
 			public void onReply(ByteBuffer replyData) {
-				byte[] replyBytes = new byte[replyData.limit()];
-				replyData.rewind();
-				replyData.get(replyBytes);
-				replyData.rewind();
-				String reply = new String(replyBytes);
-				System.out.println("REPLY: " + reply);
+				replies.set(true);
 			}
 		});
 		final DataProcessor dataProcessor = yarnApplication.launch();
@@ -168,52 +178,29 @@ public class Clustered_ApplicationMasterTests {
 			}
 		});
 		Thread.sleep(2000);// let it run for a while and then terminate
-		yarnApplication.shutDown();
+		executor.execute(new Runnable() {	
+			@Override
+			public void run() {
+				yarnApplication.shutDown();
+			}
+		});
+		Thread.sleep(2000);
+		assertTrue(yarnApplication.isRunning());
+		yarnApplication.terminate();
 		assertFalse(yarnApplication.isRunning());
+		assertFalse(replies.get());
+		executor.shutdownNow();
 	}
 	
 	/**
-	 * Should see no REPLY messages coming in.
-	 * @throws Exception
+	 * Validates that a finite container with a long running task can be terminated
 	 */
 	@Test
-	public void validateReusableContainerTerminated() throws Exception {
-		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(ContainerWithLongRunningLoop.class).
-				containerCount(4).
-				withApplicationMaster(new YarnConfiguration()).build("validateReusableContainerGracefulShutdownAfterAllTasksSubmitted");
-		yarnApplication.registerReplyListener(new ContainerReplyListener() {
-			@Override
-			public void onReply(ByteBuffer replyData) {
-				byte[] replyBytes = new byte[replyData.limit()];
-				replyData.rewind();
-				replyData.get(replyBytes);
-				replyData.rewind();
-				String reply = new String(replyBytes);
-				System.out.println("REPLY: " + reply);
-			}
-		});
-		final DataProcessor dataProcessor = yarnApplication.launch();
-		assertTrue(yarnApplication.isRunning());
-		ExecutorService executor = Executors.newCachedThreadPool();
-		executor.execute(new Runnable() {		
-			@Override
-			public void run() {
-				for (int i = 0; i < 10; i++) {
-					dataProcessor.process(ByteBuffer.wrap(("hello-" + i).getBytes()));
-				}
-			}
-		});
-		Thread.sleep(2000);// let it run for a while and then terminate
-		yarnApplication.terminate();
-		assertFalse(yarnApplication.isRunning());
-		executor.shutdown();
-	}
-	
-	@Test
-	public void validateFiniteContainerWithInfiniteLoopForceShutdown() throws Exception {
+	public void validateFiniteContainerTermination() throws Exception {
+//		ConfigUtils.addToClasspath(new File("/Users/oleg/HADOOP_DEV/yaya/yarn-test-cluster/src/main/resources"));
 		final YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ContainerWithLongRunningLoop.class, ByteBuffer.wrap("hello".getBytes())).
 							containerCount(2).
-							withApplicationMaster(new YarnConfiguration()).build("validateFiniteContainerWithInfiniteLoopForceShutdown");
+							withApplicationMaster(new YarnConfiguration()).build("validateFiniteContainerTermination");
 		yarnApplication.registerReplyListener(new ContainerReplyListener() {
 			@Override
 			public void onReply(ByteBuffer replyData) {
@@ -234,33 +221,45 @@ public class Clustered_ApplicationMasterTests {
 			}
 		});
 		yarnApplication.awaitLaunch();
-		Thread.sleep(5000);// let it run for a while and then terminate
+		assertTrue(yarnApplication.isRunning());
+
+		Thread.sleep(4000);// let it run for a while and then terminate
+		executor.execute(new Runnable() {	
+			@Override
+			public void run() {
+				yarnApplication.shutDown();
+			}
+		});
+
+		Thread.sleep(4000); // ensure that it is still running
+		assertTrue(yarnApplication.isRunning());
 		yarnApplication.terminate();
 		assertFalse(yarnApplication.isRunning());
 	}
 	
 	/**
+	 * This test validates that finite application exits immediately upon container startup failure
+	 * 
+	 * @throws Exception
 	 */
 	@Test
-	public void validateForcedContainerStartupFailure() throws Exception {
+	public void validateApplicationSelfExitAfterContaierStartupFailure() throws Exception {
+//		ConfigUtils.addToClasspath(new File("/Users/oleg/HADOOP_DEV/yaya/yarn-test-cluster/src/main/resources"));
+		
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ContainerWithLongRunningLoop.class, ByteBuffer.wrap("hello".getBytes())).
-				containerCount(4).
-				withApplicationMaster(new YarnConfiguration()).build("validateForcedContainerStartupFailure");
+				containerCount(8).
+				withApplicationMaster(new YarnConfiguration()).build("validateApplicationSelfExitAfterContaierStartupFailure");
 		
 		Map<String, Object> specificationMap = new HashMap<>(yarnApplication.getApplicationSpecification());
 		specificationMap.put("FORCE_CONTAINER_ERROR", true);
-		specificationMap.put(YayaConstants.CLIENTS_JOIN_TIMEOUT, "10");
 		specificationMap.put(YayaConstants.YARN_CONFIG, new YarnConfiguration());
 		
 		Constructor<?> launcherCtr = ReflectionUtils.getInvocableConstructor("oz.hadoop.yarn.api.core.ApplicationMasterLauncherImpl", Map.class);
 		Object launcher = launcherCtr.newInstance(specificationMap);
-		try {
-			Method launchMethod = ReflectionUtils.getMethodAndMakeAccessible(launcher.getClass(), "launch");
-			launchMethod.invoke(launcher);
-			fail();
-		} catch (Exception e) {
-			// ignore
-		}
+		Method launchMethod = ReflectionUtils.getMethodAndMakeAccessible(launcher.getClass(), "launch");
+		launchMethod.invoke(launcher);
+		//Thread.sleep(2000);
+		assertFalse(yarnApplication.isRunning());
 	}
 	
 	/**

@@ -15,6 +15,9 @@
  */
 package oz.hadoop.yarn.api.core;
 
+import java.lang.reflect.Constructor;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -32,7 +35,10 @@ import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
 import org.apache.hadoop.yarn.util.Records;
 
 import oz.hadoop.yarn.api.YayaConstants;
+import oz.hadoop.yarn.api.net.ApplicationContainerClient;
+import oz.hadoop.yarn.api.net.ApplicationContainerMessageHandler;
 import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
+import oz.hadoop.yarn.api.utils.ReflectionUtils;
 
 /**
  * @author Oleg Zhurakousky
@@ -48,21 +54,23 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 	
 	protected final int containerCount;
 	
-	protected final AtomicInteger livelinessBarrier;
+	protected final AtomicInteger liveContainerCount;
 	
-	protected final AtomicInteger containerStarts;
+//	protected final AtomicInteger containerStarts;
 	
 	protected final ApplicationMasterCallbackSupport callbackSupport;
 	
 	protected volatile Throwable error;
 	
-	protected volatile boolean started;
+//	protected volatile boolean started;
 	
 	private final CountDownLatch containerStartBarrier;
 	
 	private final int containerStartAwaitTime;
 	
 	private final CountDownLatch containerFinishBarrier;
+	
+	private ApplicationContainerClient client;
 	
 	/**
 	 * 
@@ -73,11 +81,12 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 		this.applicationSpecification = applicationSpecification;
 		this.containerSpecification = containerSpecification;
 		this.containerCount = this.containerSpecification.getInt(YayaConstants.CONTAINER_COUNT);
-		this.livelinessBarrier = new AtomicInteger();
-		this.containerStarts = new AtomicInteger();
+		this.liveContainerCount = new AtomicInteger();
+//		this.containerStarts = new AtomicInteger();
 		this.callbackSupport = new ApplicationMasterCallbackSupport();
-		this.containerStartBarrier = new CountDownLatch(this.containerCount);
+		
 		this.containerStartAwaitTime = 60000; // milliseconds
+		this.containerStartBarrier = new CountDownLatch(this.containerCount);
 		this.containerFinishBarrier = new CountDownLatch(this.containerCount);
 	}
 
@@ -87,10 +96,12 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 	@Override
 	public void launch() {
 		try {
+			this.startApplicationMasterClient();
+			
 			this.doLaunch();
 			// Wait till all containers are finished. clean up and exit.
 			logger.info("Waiting for Application Containers to finish");
-		
+			
 			boolean success = this.containerStartBarrier.await(this.containerStartAwaitTime, TimeUnit.MILLISECONDS);
 			if (success){
 				if (this.error != null){
@@ -104,7 +115,7 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 				}
 			}
 			else {
-				this.error = new IllegalStateException("Failed to start " + this.containerCount + " declared containers. Only started " + this.containerStarts);
+				this.error = new IllegalStateException("Failed to start " + this.containerCount + " declared containers. Only started " + this.liveContainerCount.get());
 			}
 		} 
 		catch (InterruptedException e) {
@@ -116,6 +127,24 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 		}
 		finally {
 			this.shutDown();
+		}
+	}
+	
+	/**
+	 * 
+	 */
+	@Override
+	public void shutDown() {
+		try {
+			this.doShutDown();
+			if (logger.isInfoEnabled()){
+				logger.info("Shut down " + this.getClass().getName());
+			}
+		} catch (Exception e) {
+			logger.error("Failure during shut down", e);
+		}
+		finally {
+			this.stopApplicationMasterClient();
 		}
 	}
 	
@@ -143,12 +172,12 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 	 * @param containerId
 	 */
 	void containerStarted(ContainerId containerId) {
-		this.livelinessBarrier.incrementAndGet();
-		this.containerStarts.incrementAndGet();
+		this.liveContainerCount.incrementAndGet();
+//		this.containerStarts.incrementAndGet();
 		this.containerStartBarrier.countDown();
-		if (this.containerStarts.get() == this.containerCount){
-			this.started = true;
-		}
+//		if (this.livelinessBarrier.get() == this.containerCount){
+//			this.started = true;
+//		}
 		if (logger.isInfoEnabled()){
 			logger.info("Started Container: " + containerId);
 		}
@@ -159,7 +188,8 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 	 * @param containerStatus
 	 */
 	void containerCompleted(ContainerStatus containerStatus) {
-		this.livelinessBarrier.decrementAndGet();
+//		containerStatus.g
+		this.liveContainerCount.decrementAndGet();
 		this.containerFinishBarrier.countDown();
 		if (containerStatus.getExitStatus() != 0){
 			this.error = new IllegalStateException(containerStatus.getDiagnostics());
@@ -167,6 +197,10 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 		if (logger.isInfoEnabled()){
 			logger.info("Completed Container: " + containerStatus);
 		}
+//		if (this.liveContainerCount.get() == 0){
+//			this.client.stop(true);
+//			this.containerFinishBarrier.countDown();
+//		}
 	}
 	
 	/**
@@ -182,10 +216,14 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 	 * @param t
 	 */
 	void errorReceived(Throwable t) {
-		this.livelinessBarrier.decrementAndGet();
+		this.liveContainerCount.decrementAndGet();
 		this.containerFinishBarrier.countDown();
-		logger.error("Resource Manager Callback handler reported an error.", t);
+		logger.error("Resource Manager reported an error.", t);
 		this.error = t;
+//		if (this.liveContainerCount.get() == 0){
+//			this.client.stop(true);
+//			this.containerFinishBarrier.countDown();
+//		}
 	}
 	
 	/**
@@ -194,7 +232,14 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 	 * @param t
 	 */
 	void containerStartupErrorReceived(ContainerId containerId, Throwable t) {
+		this.liveContainerCount.decrementAndGet();
+		this.containerFinishBarrier.countDown();
 		logger.error("Container " + containerId + " startup error received: ", t);
+		
+//		if (this.liveContainerCount.get() == 0){
+//			this.client.stop(true);
+//			this.containerFinishBarrier.countDown();
+//		}
 	}
 
 	/**
@@ -203,21 +248,6 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 	 */
 	abstract void containerAllocated(Container allocatedContainer);
 
-	/**
-	 * 
-	 */
-	@Override
-	public void shutDown() {
-		try {
-			this.doShutDown();
-			if (logger.isInfoEnabled()){
-				logger.info("Shut down " + this.getClass().getName());
-			}
-		} catch (Exception e) {
-			logger.error("Failure during shut down", e);
-		}
-	}
-	
 	/**
 	 * 
 	 * @throws Exception
@@ -229,4 +259,49 @@ public abstract class AbstractApplicationContainerLauncher implements Applicatio
 	 * @throws Exception
 	 */
 	abstract void doShutDown() throws Exception;
+	
+	/**
+	 * 
+	 */
+	private void startApplicationMasterClient(){
+		try {
+			InetSocketAddress address = new InetSocketAddress(this.applicationSpecification.getString(YayaConstants.CLIENT_HOST), 
+					  this.applicationSpecification.getInt(YayaConstants.CLIENT_PORT));
+			Constructor<ApplicationContainerClient> acCtr = ReflectionUtils.getInvocableConstructor(
+					ApplicationContainerClient.class.getPackage().getName() + ".ApplicationContainerClientImpl", 
+					InetSocketAddress.class, ApplicationContainerMessageHandler.class, Runnable.class);
+			this.client = acCtr.newInstance(address, new ApplicationContainerMessageHandler() {		
+				@Override
+				public void onDisconnect() {
+					// noop
+				}
+				
+				@Override
+				public ByteBuffer handle(ByteBuffer messageBuffer) {
+					// noop
+					return null;
+				}
+			}, new Runnable() {
+				@Override
+				public void run() {
+					// noop
+				}
+			});
+			InetSocketAddress clientAddress = this.client.start();
+			if (logger.isDebugEnabled()){
+				logger.debug("Started Application Master client on " + clientAddress);
+			}
+		} 
+		catch (Exception e) {
+			throw new IllegalStateException("Failed to create ApplicationContainerClient instance", e);
+		}
+	}
+	
+	/**
+	 * 
+	 */
+	private void stopApplicationMasterClient(){
+		this.client.stop(true);
+		logger.debug("Stopped Application Master client.");
+	}
 }

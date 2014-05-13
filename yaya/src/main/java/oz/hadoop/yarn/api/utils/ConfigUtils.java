@@ -16,74 +16,49 @@
 package oz.hadoop.yarn.api.utils;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 
+import org.apache.hadoop.conf.Configuration;
 import org.springframework.util.Assert;
-import org.springframework.util.FileCopyUtils;
 
 /**
+ * Utilities to manipulate {@link Configuration} object to be used for
+ * bootstrapping the application. 
+ * 
  * @author Oleg Zhurakousky
- *
+ * 
  */
 public class ConfigUtils {
-	
-	private ConfigUtils(){}
+
+	private ConfigUtils() {
+	}
 
 	/**
+	 * Will dynamically add configuration directory to the classpath.
 	 * 
-	 * @param file
+	 * @param configurationDirectoryPath
 	 */
-	public static void setConfig(File configurationPath){
-		Assert.notNull(configurationPath, "'configurationPath' must not be null");
-		Assert.isTrue(configurationPath.exists(), "'configurationPath' must exist");
-		
-		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+	public static void addToClasspath(File configurationDirectoryPath) {
+		Assert.notNull(configurationDirectoryPath,"'configurationDirectoryPath' must not be null");
+		Assert.isTrue(configurationDirectoryPath.exists(),"'configurationDirectoryPath' must exist");
+		Assert.isTrue(configurationDirectoryPath.isDirectory(),"'configurationDirectoryPath' must be a directory");
+
 		URL configUrl = null;
 		try {
-			configUrl = new URL("file://" + configurationPath.getAbsolutePath());
-		} catch (Exception e) {
-			throw new IllegalArgumentException("Failed to construct URL for " + configurationPath, e);
+			configUrl = new URL("file:" + configurationDirectoryPath.getAbsolutePath() + "/");
+		} 
+		catch (Exception e) {
+			throw new IllegalArgumentException("Failed to construct URL for " + configurationDirectoryPath, e);
 		}
-		URLClassLoader urlClassLoader = new URLClassLoader(new URL[]{configUrl}, classLoader);
-		Thread.currentThread().setContextClassLoader(urlClassLoader);
-		
-		/*
-		File classpathRoot = new File(classLoader.getResource("").getPath());
-	    if (configurationPath.isDirectory()){
-			String[] configs = configurationPath.list();
-			for (String configFileName : configs) {
-				File configFile = new File(configurationPath, configFileName);
-				File configFileOnClassPath = new File(classpathRoot, configFileName);
-				doCopy(configFile, configFileOnClassPath);
-			}
-		}
-    	else {
-    		File configFileOnClassPath = new File(classpathRoot, configurationPath.getName());
-			if (configFileOnClassPath.exists()){
-				configFileOnClassPath.delete();
-			}
-			doCopy(configurationPath, configFileOnClassPath);
-    	}
-    	*/
-	}
-	
-	/**
-	 * 
-	 * @param from
-	 * @param to
-	 */
-	private static void doCopy(File from, File to) {
-		if (from.getName().endsWith("-site.xml")){
-			try {
-				if (to.exists()){
-					to.delete();
-				}
-				FileCopyUtils.copy(from, to);
-			} 
-			catch (Exception e) {
-				throw new IllegalStateException("Failed to copy configurations to the claspath", e);
-			}
+		URLClassLoader cl = (URLClassLoader) ClassLoader.getSystemClassLoader();
+		Method addUrlMethod = ReflectionUtils.getMethodAndMakeAccessible(URLClassLoader.class, "addURL", URL.class);
+		try {
+			addUrlMethod.invoke(cl, configUrl);
+		} 
+		catch (Exception e) {
+			throw new IllegalStateException("Failed to add URL: " + configUrl + " to the classpath", e);
 		}
 	}
 }

@@ -54,7 +54,7 @@ public class InteractableYarnApplicationContainersClusterDemo {
 	public static void main(String[] args) throws Exception {
 		MiniClusterUtils.startMiniCluster();
 
-		ConfigUtils.setConfig(new File("mini-cluster-config"));
+		ConfigUtils.addToClasspath(new File("mini-cluster-config"));
 		
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(DemoEchoContainer.class).
 				containerCount(4).

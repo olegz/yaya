@@ -43,7 +43,22 @@ public class LocalApplicationLaunchTests {
 	
 	private static AtomicInteger flag = new AtomicInteger();
 	
-	@Test(timeout=10000)
+	//@Test//(timeout=10000)
+	public static void main(String[] args) throws Exception {
+		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class).
+												containerCount(2).
+												withApplicationMaster().
+													build("sample-yarn-application");
+		
+		DataProcessor dataProcessor = yarnApplication.launch();
+	
+		
+		yarnApplication.shutDown();
+		System.out.println();
+		
+	}
+	
+	@Test//(timeout=10000)
 	public void validateWithReplyListener() throws Exception {
 		final AtomicInteger repliesCounter = new AtomicInteger();
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(SimpleEchoContainer.class).

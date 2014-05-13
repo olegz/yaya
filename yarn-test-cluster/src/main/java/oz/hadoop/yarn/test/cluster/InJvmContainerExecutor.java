@@ -183,7 +183,7 @@ public class InJvmContainerExecutor extends DefaultContainerExecutor {
 		catch (Exception e) {
 			logger.error("Failed to launch container " + container, e);
 			container.handle(new ContainerDiagnosticsUpdateEvent(container.getContainerId(), e.getMessage()));
-			return 1;
+			return -1968;
 		}
 		return 0;
 	}

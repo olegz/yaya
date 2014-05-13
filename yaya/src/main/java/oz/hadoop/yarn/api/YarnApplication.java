@@ -94,6 +94,9 @@ public interface YarnApplication<T> {
 	 */
 	boolean isRunning();
 	
+	
+//	boolean isTerminated();
+	
 	/**
 	 * Will return the count of currently running (alive) Application Containers. 
 	 * Typical use of this method is purely informational/debugging since

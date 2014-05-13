@@ -62,9 +62,10 @@ class ApplicationContainer extends AbstractContainer {
 	 */
 	@Override
 	void launch() {
-		this.preLaunch();
+		
 		logger.info("###### Starting APPLICATION CONTAINER ######");
 		try {
+			this.preLaunch();
 			this.doLaunch();
 		} 
 		catch (Exception e) {
@@ -153,7 +154,7 @@ class ApplicationContainer extends AbstractContainer {
 	 * 
 	 */
 	private void preLaunch(){
-		if (applicationSpecification.getBoolean("FORCE_CONTAINER_ERROR")){ // strictly for testing
+		if (this.applicationSpecification.getBoolean("FORCE_CONTAINER_ERROR")){ // strictly for testing
 			if (new Random().nextInt(2) == 1){
 				throw new RuntimeException("INTENTIONALLY FORCING CONTAINER STARTUP FAILURE DUE TO 'FORCE_CONTAINER_ERROR' PROPERTY SET TO TRUE");
 			}

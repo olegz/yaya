@@ -117,21 +117,27 @@ public final class ApplicationContainerLauncherEmulatorImpl extends AbstractAppl
 		if (logger.isDebugEnabled()){
 			logger.debug("Container allocated");
 		}
-		final AtomicBoolean error = new AtomicBoolean();
+		final AtomicBoolean errorFlag = new AtomicBoolean();
 		this.executor.execute(new Runnable() {	
 			@Override
 			public void run() {
+				ContainerStatus containerStatus = new ContainerStatusPBImpl();
 				try {
 					applicationContainer.launch();
 					logger.info("Container finished");
 					// TODO implement a better mock so it can show ContainerRequest values
-					ContainerStatus containerStatus = new ContainerStatusPBImpl();
-					rmCallbackHandler.onContainersCompleted(Collections.singletonList(containerStatus));
+					
+					containerStatus.setExitStatus(0);
+//					rmCallbackHandler.onContainersCompleted(Collections.singletonList(containerStatus));
 				} 
 				catch (Exception e) {
 					logger.error("Application Container failed. ", e);
-					rmCallbackHandler.onError(e);
-					error.set(true);
+//					rmCallbackHandler.onError(e);
+					containerStatus.setExitStatus(0);
+					errorFlag.set(true);
+				}
+				finally {
+					rmCallbackHandler.onContainersCompleted(Collections.singletonList(containerStatus));
 				}
 			}
 		});
@@ -140,11 +146,12 @@ public final class ApplicationContainerLauncherEmulatorImpl extends AbstractAppl
 			@Override
 			public void run() {
 				try {
-					Field clientField = ReflectionUtils.getFieldAndMakeAccessible(applicationContainer.getClass(), "client");
-					while (clientField.get(applicationContainer) == null && !error.get()){
-						LockSupport.parkNanos(1000000);
-					}
-					if (!error.get()){
+//					Field clientField = ReflectionUtils.getFieldAndMakeAccessible(ApplicationContainer.class, "client");
+//					while (clientField.get(applicationContainer) == null && !errorFlag.get()){
+//						LockSupport.parkNanos(1000000);
+//					}
+					awaitApplicationContainerStart(applicationContainer, errorFlag);
+					if (!errorFlag.get()){
 						nmCallbackHandler.onContainerStarted(allocatedContainer.getId(), null);
 						if (logger.isDebugEnabled()){
 							logger.debug("Container started");
@@ -152,10 +159,24 @@ public final class ApplicationContainerLauncherEmulatorImpl extends AbstractAppl
 					}
 				} 
 				catch (Exception e) {
-					logger.error("Sjould never heppen. Must be a bug. Please report", e);
+					logger.error("Should never heppen. Must be a bug. Please report", e);
 					e.printStackTrace();
 				}
 			}
 		});
+	}
+	
+	/**
+	 * 
+	 */
+	private void awaitApplicationContainerStart(ApplicationContainer applicationContainer, AtomicBoolean errorFlag) throws Exception {
+		Field clientField = ReflectionUtils.getFieldAndMakeAccessible(ApplicationContainer.class, "client");
+		while (clientField.get(applicationContainer) == null && !errorFlag.get()){
+			LockSupport.parkNanos(1000000);
+			if (Thread.currentThread().isInterrupted()){
+				logger.warn("Interrupted while waiting for Application Container to start");
+				break;
+			}
+		}
 	}
 }

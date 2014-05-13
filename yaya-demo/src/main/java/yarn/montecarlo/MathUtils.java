@@ -16,9 +16,7 @@
 package yarn.montecarlo;
 
 import java.nio.ByteBuffer;
-import java.text.DecimalFormat;
 import java.util.Arrays;
-import java.util.Random;
 
 /**
  * @author Oleg Zhurakousky

@@ -21,6 +21,7 @@ import java.util.Map;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.json.simple.parser.JSONParser;
 
@@ -57,6 +58,7 @@ abstract class AbstractContainer {
 		Constructor<AbstractContainer> lCtr = ReflectionUtils.getInvocableConstructor(args[1], PrimitiveImmutableTypeMap.class);
 		AbstractContainer containerLauncher = lCtr.newInstance(containerArguments);
 		containerLauncher.launch();
+		System.out.println("CONTAINER EXITED!!!!!!!!!!!");
 	}
 	
 	/**
@@ -69,7 +71,7 @@ abstract class AbstractContainer {
 			logger.info("Creating " + this.getClass().getName());
 		}
 		
-		this.yarnConfig = new YarnConfiguration();
+		this.yarnConfig = new YarnConfiguration(new Configuration());
 		
 		this.applicationSpecification = applicationSpecification;
 		this.containerSpec = new PrimitiveImmutableTypeMap((Map<String, Object>) this.applicationSpecification.get(YayaConstants.CONTAINER_SPEC));

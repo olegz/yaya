@@ -19,6 +19,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.text.DecimalFormat;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 import demo.utils.MiniClusterUtils;
@@ -44,15 +45,16 @@ public class MonteCarloSimulationDemo {
 	public static void main(String[] args) {
 		int containerCount = prepare(args);
 		
+		
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(MonteCarloSimulationContainer.class).
 					containerCount(containerCount).
-					withApplicationMaster(new YarnConfiguration()).
+					withApplicationMaster(new YarnConfiguration(new Configuration())).
 							build("MonteCarloSimulation");
 		
 		yarnApplication.registerReplyListener(new ResultsPrinter());
 		
 		DataProcessor processor = yarnApplication.launch();
-		
+		System.out.println("\n=== STARTING SIMULATION ===\n");
 		long start = System.currentTimeMillis();
 		for (int sigma = 5; sigma < 15; sigma++) {
 			for (int avReturn = 9; avReturn < 14; avReturn++) {
@@ -91,7 +93,6 @@ public class MonteCarloSimulationDemo {
 
 		@Override
 		public ByteBuffer process(ByteBuffer input) {
-			//InvestementSimulation simulation = new InvestementSimulation(input, this.persister);
 			ByteBuffer result = simulation.runSimulation(input);
 			return result;
 		}
@@ -126,12 +127,10 @@ public class MonteCarloSimulationDemo {
 			if (args.length > 1){
 				configPath = args[1];
 			}
-			else {
-				MiniClusterUtils.startMiniCluster();
-			}
+			MiniClusterUtils.startMiniCluster();
 		}
 		File configLocation = new File(configPath);
-		ConfigUtils.setConfig(configLocation);
+		ConfigUtils.addToClasspath(configLocation);
 		System.out.println("Will use " + containerCount + " containers and configuration from " + configLocation.getAbsolutePath());
 		return containerCount;
 	}

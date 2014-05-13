@@ -88,6 +88,7 @@ class DataProcessorImpl implements DataProcessor {
 	 */
 	@Override
 	public void process(ByteBuffer data) {
+		
 		this.process(data, null);
 	}
 	
@@ -124,12 +125,12 @@ class DataProcessorImpl implements DataProcessor {
 				this.completedSinceStart.getAndIncrement();
 			}
 			else {
-				logger.debug("No longer active");
+				logger.debug("Process awaiting available container delegate was discarded due to application termination.");
 			}
 		}
 		else {
 			logger.warn("Rejecting submission due to the shutdown. Completed processes: " + this.completedSinceStart.get());
-			throw new RejectedExecutionException("Rejecting submission due to the shutdown");
+			throw new RejectedExecutionException("Rejecting submission due to a termination");
 		}
 	}
 	

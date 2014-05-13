@@ -19,11 +19,10 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.ByteChannel;
+import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NetworkChannel;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -33,7 +32,6 @@ import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.locks.LockSupport;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -56,29 +54,23 @@ abstract class AbstractSocketHandler implements SocketHandler {
 	
 	private final Class<? extends AbstractSocketHandler> thisClass;
 	
-	private final InetSocketAddress address;
-	
-	private final Selector selector;
-	
-	private final Runnable listenerTask;
-	
-	protected final Runnable onDisconnectTask;
-	
-	protected final NetworkChannel channel;
-	
 	private final ByteBuffer readingBuffer;
 	
 	private final ByteBufferPool bufferPoll;
 	
-	private final CountDownLatch livelinessLatch;
+	final CountDownLatch lifeCycleLatch;
 	
-	protected final ExecutorService executor;
+	final InetSocketAddress address;
 	
-	private volatile boolean running;
+	final Runnable listenerTask;
 	
-	volatile boolean listening;
+	final Runnable onDisconnectTask;
 	
+	final NetworkChannel rootChannel;
 	
+	final ExecutorService executor;
+	
+	volatile Selector selector;
 
 	/**
 	 * 
@@ -94,8 +86,7 @@ abstract class AbstractSocketHandler implements SocketHandler {
 		this.readingBuffer = ByteBuffer.allocate(16384);
 		this.bufferPoll = new ByteBufferPool();
 		try {
-			this.selector = Selector.open();
-			this.channel = server ? ServerSocketChannel.open() : SocketChannel.open();
+			this.rootChannel = server ? ServerSocketChannel.open() : SocketChannel.open();
 			if (logger.isDebugEnabled()){
 				logger.debug("Created instance of " + this.getClass().getSimpleName());
 			}
@@ -104,7 +95,7 @@ abstract class AbstractSocketHandler implements SocketHandler {
 			throw new IllegalStateException("Failed to create an instance of the ApplicationContainerClient", e);
 		}
 		this.thisClass = this.getClass();
-		this.livelinessLatch = new CountDownLatch(1);
+		this.lifeCycleLatch = new CountDownLatch(1);
 	}
 	
 	/**
@@ -115,24 +106,17 @@ abstract class AbstractSocketHandler implements SocketHandler {
 	public InetSocketAddress start() {
 		InetSocketAddress serverAddress = this.address;
 		try {
-			if (!this.listening) {
+			if (this.selector == null) {
+				this.selector = Selector.open();
 				this.init();
-				
-				this.listening = true;
 				this.executor.execute(this.listenerTask);
 				if (logger.isDebugEnabled()){
 					logger.debug("Started listener for " + AbstractSocketHandler.this.getClass().getSimpleName());
 				}	
-				serverAddress = (InetSocketAddress) this.channel.getLocalAddress();
+				serverAddress = (InetSocketAddress) this.rootChannel.getLocalAddress();
 			}
-			this.running = true;
 		} 
-		catch (ClosedChannelException cce){
-			this.listening = false;
-			logger.warn("Failed to connect to the Server becouse it rejected the connection. Most likely reason: Illegal/Unexpected" +
-					"client was trying to join");
-		}
-		catch (Exception e) {
+		catch (IOException e) {
 			throw new IllegalStateException("Failed to start " + this.getClass().getName(), e);
 		}
 		return serverAddress;
@@ -147,82 +131,90 @@ abstract class AbstractSocketHandler implements SocketHandler {
 	 *      set this parameter to 'true'.
 	 * 
 	 */
-	public void stop(boolean force){
-		this.doStop(force);
+	public void stop(boolean force){		
+		// for Server it will remove container delegates forcefully or wait if neccessery letting them finish
+		this.preStop(force);
+		
 		/*
-		 * Close this handler's channel and all connected channels if any by setting running to false
-		 * thus exiting the ListenerLoop
+		 * close all client sockets which will trigger AM to close its client socket
+		 * triggering onDisconnect() 
 		 */
-		this.listening = false;
-		if (force){
-			this.executor.shutdownNow();
+		for (SelectionKey key : new HashSet<>(AbstractSocketHandler.this.selector.keys())) {
+			if (this.canClose(key)){
+				Channel channel = key.channel();
+				if (channel instanceof SocketChannel){
+					this.closeChannel(channel);
+				}
+			}
 		}
-		else {
-			this.executor.shutdown();
-		}
-		// Wait for the ListenerTask to complete (may be change to latch)
-		while (this.running){
-			LockSupport.parkNanos(10000000);
-		}
+		
+		/* 
+		 * After closing all clients(AC) sockets containers will terminate and AM
+		 * will close its client at which point onDisconnect will be triggered and the below
+		 * wait will succeed. We need this to ensure that we don't exit the application until
+		 * all remote processes have completely finished and exited.
+		 */
+		this.awaitShutdown();
 	}
 	
+	/**
+	 * Checks if a channel which corresponds to a {@link SelectionKey}
+	 * can be closed. Always true in the default case.
+	 *  
+	 * @param key
+	 * @return
+	 */
+	protected boolean canClose(SelectionKey key){
+		return true;
+	}
+
+	/**
+	 * Blocks until this handler is shut down.
+	 */
 	@Override
 	public void awaitShutdown() {
 		try {
-			this.livelinessLatch.await();
+			this.lifeCycleLatch.await();
 		} 
 		catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
 			logger.warn("Interrupted while waiting for shutdown");
 		}
 	}
 	
 	/**
-	 * 
-	 * @return
+	 * Checks if this handler is running
 	 */
 	@Override
 	public boolean isRunning(){
-		return this.running;
+		return this.rootChannel.isOpen();
 	}
 	
 	/**
+	 * 
+	 * @param channel
+	 */
+	protected void closeChannel(Channel channel){
+		try {
+			channel.close();
+		} 
+		catch (IOException e) {
+			logger.warn("Failure closing channel", e);
+		}
+		if (channel.equals(this.rootChannel)){
+			lifeCycleLatch.countDown();
+		}
+	}
+	
+	/**
+	 * Allows for implementation of additional routines required 
+	 * to be executed before this handler closes its socket.
 	 * 
 	 * @param force
+	 * 			If 'true' signals the intention of immediate shutdown
 	 */
-	void doStop(boolean force) {
+	void preStop(boolean force) {
 		// noop
-	}
-	
-	/**
-	 * Returns an instance of {@link NetworkChannel} representing this socket handler
-	 * The actual instance will be {@link ServerSocketChannel} if this socket container is a server
-	 * and {@link SocketChannel} if this socket container is client.
-	 * 
-	 */
-	NetworkChannel getChannel(){
-		return this.channel;
-	}
-	
-	/**
-	 * Returns the {@link SocketAddress} of this socket handler.
-	 */
-	SocketAddress getAddress(){
-		return this.address;
-	}
-	
-	/**
-	 * Returns {@link Selector} used by this socket handler
-	 * 
-	 */
-	Selector getSelector(){
-		return this.selector;
-	}
-
-	/**
-	 * Returns {@link ExecutorService} of this socket handler
-	 */
-	ExecutorService getExecutor(){
-		return this.executor;
 	}
 	
 	/**
@@ -255,7 +247,9 @@ abstract class AbstractSocketHandler implements SocketHandler {
 	/**
 	 * 
 	 */
-	abstract void onDisconnect(SelectionKey selectionKey);
+	void onDisconnect(SelectionKey selectionKey){
+		// noop
+	}
 	
 	/**
 	 * Main listener task which will process delegate {@link SelectionKey} selected from the {@link Selector}
@@ -264,57 +258,36 @@ abstract class AbstractSocketHandler implements SocketHandler {
 	private class ListenerTask implements Runnable {
 
 		@Override
-		public void run() {
+		public void run() {	
+			try {
+				while (AbstractSocketHandler.this.rootChannel.isOpen()){
+					this.processSelector(10);
+				}
+			} 
+			catch (IOException e) {
+				logger.warn("IOException in socket listener loop: " + e.getMessage());
+			} 
+			catch (Exception e) {
+				logger.error("Exception in socket listener loop", e);
+			}
+
+			if (logger.isDebugEnabled()){
+				logger.debug(thisClass.getSimpleName() +  "Exited Listener loop in " + AbstractSocketHandler.this.thisClass.getSimpleName());
+			}
 			
 			try {
-				while (AbstractSocketHandler.this.listening){
-					this.processSelector(10);	
-				}
-				
-				/*
-				 * If the exception is thrown above, below will nevre hapen
-				 */
-				if (logger.isDebugEnabled()){
-					logger.debug(thisClass.getSimpleName() +  " - Exiting Listener loop in " + AbstractSocketHandler.this.getClass().getSimpleName());
-				}
-				if (AbstractSocketHandler.this.selector.isOpen()){
-					for (SelectionKey key : new HashSet<>(AbstractSocketHandler.this.selector.keys())) {
-						SocketAddress channelAddress = null;
-						SelectableChannel channel = key.channel();
-						
-						if (channel.isOpen()){
-							if (key.channel() instanceof SocketChannel){
-								channelAddress = ((SocketChannel)key.channel()).getRemoteAddress();
-							}
-							else {
-								channelAddress = ((ServerSocketChannel)key.channel()).getLocalAddress();
-							}
-							key.channel().close();
-							if (logger.isDebugEnabled()){
-								logger.debug(thisClass.getSimpleName() + " - Closed " + channelAddress);
-							}
-							
-						}
-					}
-					if (AbstractSocketHandler.this.selector.isOpen()){
-						AbstractSocketHandler.this.selector.close();
-						if (onDisconnectTask != null){
-							onDisconnectTask.run();
-						}
-					}
-				}
-				
+				AbstractSocketHandler.this.selector.close();
 			} 
-			catch (AsynchronousCloseException e) {
-				logger.warn("Socket has been closed");
+			catch (IOException e) {
+				logger.warn("IOException while closing selector.", e);
 			}
-			catch (Exception e) {
-				throw new IllegalStateException(e);
-			}
-			finally {
-				running = false;
-				livelinessLatch.countDown();
-			}
+			/*
+			 * At this point we must terminate to send interrupt to all currently running tasks.
+			 * Forceful or graceful shutdown details are handled much earlier, but if it got 
+			 * to this point it must stop. Invoking a simple shutdown() will allow currently running tasks
+			 * to continue.
+			 */
+			AbstractSocketHandler.this.executor.shutdownNow();
 		}
 		
 		/**
@@ -369,7 +342,7 @@ abstract class AbstractSocketHandler implements SocketHandler {
 	        if (clientChannel.isConnectionPending()){
 	        	clientChannel.finishConnect();
 	        }
-	        clientChannel.register(selector, SelectionKey.OP_READ);
+	        clientChannel.register(AbstractSocketHandler.this.selector, SelectionKey.OP_READ);
 	    }
 		
 		/**
@@ -404,7 +377,7 @@ abstract class AbstractSocketHandler implements SocketHandler {
 			while (!finished && (count = socketChannel.read(AbstractSocketHandler.this.readingBuffer)) > -1){
 				ByteBuffer messageBuffer = (ByteBuffer) selectionKey.attachment();
 				if (messageBuffer == null) { // new message
-		    		messageBuffer = bufferPoll.poll();
+		    		messageBuffer = AbstractSocketHandler.this.bufferPoll.poll();
 					selectionKey.attach(messageBuffer);
 				}
 				AbstractSocketHandler.this.readingBuffer.flip();
@@ -432,10 +405,13 @@ abstract class AbstractSocketHandler implements SocketHandler {
 	        
 	        if (count < 0) {
 	            if (logger.isDebugEnabled()){
-	            	logger.debug(thisClass.getSimpleName() + " - Connection closed by: " + socketChannel.socket().getRemoteSocketAddress());
+	            	logger.debug(AbstractSocketHandler.this.thisClass.getSimpleName() + " - Connection closed by: " + socketChannel.socket().getRemoteSocketAddress());
 	            }
-	            socketChannel.close();
+	            AbstractSocketHandler.this.closeChannel(socketChannel);
 	            AbstractSocketHandler.this.onDisconnect(selectionKey);
+	            if (AbstractSocketHandler.this.onDisconnectTask != null){
+	            	AbstractSocketHandler.this.onDisconnectTask.run();
+				}
 	        }
 	    }
 	}

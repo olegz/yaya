@@ -19,12 +19,15 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.LockSupport;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,6 +40,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
+import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
@@ -103,6 +107,7 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 	    catch (Exception e) {
 			throw new IllegalStateException("Failed to launch Application Master: " + this.applicationName, e);
 		}
+	    
 		return this.applicationId;
 	}
 	
@@ -111,11 +116,12 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 	 */
 	ApplicationId doShutDown() {
 		try {
-			this.yarnClient.stop();
+			this.yarnClient.stop();	
 		} 
 		catch (Exception e) {
 			logger.warn("Call to YarnClient.stop() resulted in Exception, probably due to the fact that applicaton is already stopped. Application: " + this.applicationId, e);
 		}
+		
 		if (logger.isInfoEnabled()){
 			logger.info("Shut down YarnClient");
 		}
@@ -254,9 +260,9 @@ class ApplicationMasterLauncherImpl<T> extends AbstractApplicationMasterLauncher
 		try {
 			FileSystem fs = FileSystem.get(this.yarnConfig);
 
-			String[] cp = System.getProperty("java.class.path").split(":");
-			for (String v : cp) {
-				File f = new File(v);
+			URL[] cp = ((URLClassLoader)ClassLoader.getSystemClassLoader()).getURLs();
+			for (URL url : cp) {
+				File f = new File(url.getFile());
 				if (f.isDirectory()) {
 					String jarFileName = YayaUtils.generateJarFileName(this.applicationName);
 					if (logger.isDebugEnabled()){

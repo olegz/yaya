@@ -58,6 +58,8 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	
 	private final boolean finite;
 	
+	private volatile SelectionKey masterSelectionKey;
+	
 	
 	/**
 	 * Will create an instance of this server using host name as 
@@ -71,6 +73,8 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 * 			expected Application Containers
 	 * @param finite
 	 * 			whether the YARN application using finite or reusable Application Containers
+	 * @param onDisconnectProcess
+	 * 			additional process implemented as {@link Runnable} to be executed during disconnect
 	 */
 	public ApplicationContainerServerImpl(int expectedClientContainers, boolean finite, Runnable onDisconnectProcess){
 		this(getDefaultAddress(), expectedClientContainers, finite, onDisconnectProcess);
@@ -88,13 +92,15 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 * 			expected Application Containers
 	 * @param finite
 	 * 			whether the YARN application using finite or reusable Application Containers
+	 * @param onDisconnectProcess
+	 * 			additional process implemented as {@link Runnable} to be executed during disconnect
 	 */
 	public ApplicationContainerServerImpl(InetSocketAddress address, int expectedClientContainers, boolean finite, Runnable onDisconnectTask) {
 		super(address, true, onDisconnectTask);
 		Assert.isTrue(expectedClientContainers > 0, "'expectedClientContainers' must be > 0");
 		this.expectedClientContainers = expectedClientContainers;
 		this.replyCallbackMap = new ConcurrentHashMap<SelectionKey, ReplyPostProcessor>();
-		this.expectedClientContainersMonitor = new CountDownLatch(expectedClientContainers);
+		this.expectedClientContainersMonitor = new CountDownLatch(expectedClientContainers+1);
 		this.containerDelegates = new HashMap<SelectionKey, ContainerDelegate>();
 		this.finite = finite;
 	}
@@ -114,6 +120,15 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 			logger.warn("Interrupted while waiting for all Application Containers to report");
 		}
 		return false;
+	}
+	
+	/**
+	 * 
+	 * @return
+	 */
+	@Override
+	public boolean isRunning(){
+		return this.containerDelegates.size() == this.expectedClientContainers;
 	}
 
 	/**
@@ -136,8 +151,8 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 * 		processes to finish.
 	 */
 	@Override
-	void doStop(boolean force) {
-		// Need to make a copy so we can remove entries without affecting the global map so it could be cleaned through normal disconnect procedure
+	void preStop(boolean force) {
+		// Need to make a copy so we can remove entries without affecting the global map so it could be cleaned at the end
 		Map<SelectionKey, ContainerDelegate> cDelegates = new HashMap<>(this.containerDelegates);
 		boolean working = cDelegates.size() > 0;
 		while (working) {
@@ -147,7 +162,7 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 				ContainerDelegate containerDelegate = cDelegates.get(selectionKey);
 				containerDelegate.suspend();
 				if (!force){
-					if (containerDelegate.available()){
+					if (containerDelegate.available() || !selectionKey.channel().isOpen()){
 						containerSelectionKeys.remove();
 					}
 				}
@@ -166,6 +181,9 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 				this.containerDelegates.clear();
 			}
 		}
+		for (int i = 0; i < this.expectedClientContainers; i++) {
+			this.expectedClientContainersMonitor.countDown();
+		}
 	}
 	
 	/**
@@ -176,15 +194,13 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 		this.replyListener = replyListener;
 	}
 	
-	/* (non-Javadoc)
-	 * @see oz.hadoop.yarn.api.net.ClientServer#getContainerDelegates()
+	/**
+	 * Will return the current view of all currently connected ContainerDelegates
+	 * 
 	 */
 	@Override
 	public ContainerDelegate[] getContainerDelegates(){
-		if (this.awaitAllClients(60)){
-			return this.containerDelegates.values().toArray(new ContainerDelegate[]{});
-		}
-		throw new IllegalStateException("Can't establish connection with all Application Containers");
+		return this.containerDelegates.values().toArray(new ContainerDelegate[]{});
 	}
 
 	/**
@@ -204,17 +220,29 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	}
 	
 	/**
+	 * Will be called ONLY when client initiates disconnect.
+	 * In the current implementation only Application Master initiates such disconnect
 	 * 
 	 * @param selectionKey
 	 */
 	@Override
 	void onDisconnect(SelectionKey selectionKey) {
-		this.containerDelegates.remove(selectionKey);
-		if (this.containerDelegates.size() == 0){
-			if (this.listening){
-				this.listening = false;
-			}
+		if (selectionKey.equals(this.masterSelectionKey)){
+			
+			preStop(true);
+			
+			this.closeChannel(this.masterSelectionKey.channel());
+			
+			this.closeChannel(this.rootChannel);
 		}
+		else {
+			this.containerDelegates.remove(selectionKey);
+		}
+	}
+	
+	@Override
+	protected boolean canClose(SelectionKey key){
+		return !key.equals(this.masterSelectionKey);
 	}
 
 	/**
@@ -222,10 +250,10 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 	 */
 	@Override
 	void init() throws IOException{
-		ServerSocketChannel channel = (ServerSocketChannel) this.getChannel();
+		ServerSocketChannel channel = (ServerSocketChannel) this.rootChannel;
 		channel.configureBlocking(false);
-		channel.socket().bind(this.getAddress());
-		channel.register(this.getSelector(), SelectionKey.OP_ACCEPT);
+		channel.socket().bind(this.address);
+		channel.register(this.selector, SelectionKey.OP_ACCEPT);
 
 		if (logger.isInfoEnabled()){
 			logger.info("Bound to " + channel.getLocalAddress());
@@ -244,15 +272,21 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 			logger.warn("Refusing connection from " + channel.getRemoteAddress() + ", since " + 
 					this.expectedClientContainers + " ApplicationContainerClients " +
 					"identified by 'expectedClientContainers' already connected.");
-			channel.close();
+			this.closeChannel(channel);
 		}
 		else {
 			channel.configureBlocking(false);
-	        SelectionKey clientSelectionKey = channel.register(this.getSelector(), SelectionKey.OP_READ);
+	        SelectionKey clientSelectionKey = channel.register(this.selector, SelectionKey.OP_READ);
 	        if (logger.isInfoEnabled()){
 	        	logger.info("Accepted conection request from: " + channel.socket().getRemoteSocketAddress());
 	        }
-	        this.containerDelegates.put(clientSelectionKey, new ContainerDelegateImpl(clientSelectionKey, this));
+	        if (this.masterSelectionKey != null){
+	        	this.containerDelegates.put(clientSelectionKey, new ContainerDelegateImpl(clientSelectionKey, this));
+	        }
+	        else {
+	        	this.masterSelectionKey = clientSelectionKey;
+	        	this.masterSelectionKey.attach(true);
+	        }
 			this.expectedClientContainersMonitor.countDown();
 		}
 	}
@@ -273,7 +307,7 @@ class ApplicationContainerServerImpl extends AbstractSocketHandler implements Ap
 		
 		if (this.finite) {
 			selectionKey.cancel();
-			selectionKey.channel().close();
+			this.closeChannel(selectionKey.channel());
 			this.onDisconnect(selectionKey);
 		}
 	}

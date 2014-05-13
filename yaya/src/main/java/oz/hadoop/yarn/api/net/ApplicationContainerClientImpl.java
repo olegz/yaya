@@ -55,41 +55,25 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 		this.messageHandler = messageHandler;
 	}
 	
-	@Override
-	void onDisconnect(SelectionKey selectionKey) {
-		if (this.listening){
-			this.listening = false;
-		}
-		/*
-		 * Keep in mind that shutdown is never initiated by the client (e.g., calling stop(). 
-		 * It always initiated by the Server by closing client's socket. This means that the Server manages
-		 * details around 'force' vs 'graceful'shutdown. So, in the cases of graceful shutdown,
-		 * the client's task will already be complete before the shutdown*() is called so shutdownNow() 
-		 * would have the same results as shutdown(). However, for 'force' shutdown, calling shutdown now
-		 * will have no effect on the currently running task while shutdownNow will cause the interrupt.
-		 */
-		this.executor.shutdownNow();
-	}
-	
 	/**
 	 * 
 	 */
 	@Override
 	void init() throws IOException {
-		SocketChannel channel = (SocketChannel) this.getChannel();
+		SocketChannel channel = (SocketChannel) this.rootChannel;
 		
-		boolean connected = channel.connect(this.getAddress());
+		boolean connected = channel.connect(this.address);
 		if (connected){
 			channel.configureBlocking(false);
 
-			channel.register(this.getSelector(), SelectionKey.OP_READ);
+			channel.register(this.selector, SelectionKey.OP_READ);
 
 			if (logger.isInfoEnabled()){
-				logger.info("Connected to " + this.getAddress());
+				logger.info("Connected to " + this.address);
 			}
 		}
 		else {
-			throw new IllegalStateException("Failed to connect to ClientServer at: " + this.getAddress());
+			throw new IllegalStateException("Failed to connect to ClientServer at: " + this.address);
 		}
 	}
 	
@@ -99,7 +83,7 @@ class ApplicationContainerClientImpl extends AbstractSocketHandler implements Ap
 	@Override
 	void read(SelectionKey selectionKey, ByteBuffer messageBuffer) throws IOException {
 		logger.debug("Buffered full message. Releasing to handler");
-		this.getExecutor().execute(new MessageProcessor(messageBuffer, selectionKey));
+		this.executor.execute(new MessageProcessor(messageBuffer, selectionKey));
 	}
 	
 	/**

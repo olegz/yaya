@@ -25,9 +25,11 @@ import java.util.Map;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
@@ -35,6 +37,7 @@ import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
+import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.impl.NMClientAsyncImpl;
@@ -47,10 +50,12 @@ import oz.hadoop.yarn.api.YayaConstants;
 import oz.hadoop.yarn.api.utils.PrimitiveImmutableTypeMap;
 
 /**
+ * INTERNAL API
+ * 
  * @author Oleg Zhurakousky
  *
  */
-public class ApplicationContainerLauncherImpl extends AbstractApplicationContainerLauncher {
+class ApplicationContainerLauncherImpl extends AbstractApplicationContainerLauncher {
 	
 	private final Log logger = LogFactory.getLog(ApplicationContainerLauncherImpl.class);
 	
@@ -72,7 +77,7 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 		this.resourceManagerClient = AMRMClientAsync.createAMRMClientAsync(100, this.callbackSupport.buildResourceManagerCallbackHandler(this));		
 		this.nodeManagerCallbaclHandler = this.callbackSupport.buildNodeManagerCallbackHandler(this);
 		this.nodeManagerClient = new NMClientAsyncImpl(this.nodeManagerCallbaclHandler);
-		this.yarnConfig = new YarnConfiguration();
+		this.yarnConfig = new YarnConfiguration(new Configuration());
 	}
 	
 	/**
@@ -80,8 +85,14 @@ public class ApplicationContainerLauncherImpl extends AbstractApplicationContain
 	 */
 	@Override
 	void doLaunch() throws Exception {
+		if (logger.isDebugEnabled()){
+			logger.debug("Launching application containers with the following config:");
+			this.yarnConfig.writeXml(System.out);
+		}
 		this.startResourceManagerClient();
+		logger.debug("Started Resource Manager Client");
 		this.startNodeManagerClient();
+		logger.debug("Started Node Manager Client");
 		// Allocate containers. Containers will be launched when callback invokes launch(Container) method.
 		int containerCount = this.containerSpecification.getInt(YayaConstants.CONTAINER_COUNT);
 		for (int i = 0; i < containerCount; ++i) {

@@ -36,6 +36,7 @@ public class CommandBasedYarnApplicationEmulatorDemo {
 	public static void main(String[] args) throws Exception {
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer("ping -c 4 google.com").
 								containerCount(4).
+								priority(3).
 								withApplicationMaster().
 									build("CommandBasedYarnApplicationDemo");
 		

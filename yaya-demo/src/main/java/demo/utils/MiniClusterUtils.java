@@ -42,10 +42,16 @@ public class MiniClusterUtils {
 		if (clusterLauncher != null){
 			throw new IllegalStateException("MiniClustrer is currently running");
 		}
-		File file = new File("");
+		File file = new File(System.getProperty("user.dir"));
 		Path path = Paths.get(file.getAbsolutePath());
-		
 		Path parentPath = path.getParent();
+		String[] resources = file.list();
+		for (String resource : resources) {
+			if (resource.equals("yaya-demo")){
+				parentPath = path;
+				break;
+			}
+		}
 		File miniClusterExe = new File(parentPath.toString() + "/yarn-test-cluster/build/install/yarn-test-cluster/bin/yarn-test-cluster");
 		System.out.println(miniClusterExe.getAbsolutePath());
 		if (!miniClusterExe.exists()){
@@ -63,6 +69,11 @@ public class MiniClusterUtils {
 				clusterLauncher.launch();
 			}
 		});
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 	}
 	
 	public static void stoptMiniCluster(){

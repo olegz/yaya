@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+./gradlew yarn-test-cluster:installApp

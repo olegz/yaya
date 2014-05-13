@@ -21,6 +21,7 @@ import java.nio.file.Paths;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -58,7 +59,7 @@ public class MiniClusterUtils {
 		
 		File clusterConfiguration = new File(parentPath + "/yarn-test-cluster/src/main/resources");
 		Assert.isTrue(clusterConfiguration.exists());
-		ConfigUtils.setConfig(clusterConfiguration);
+		ConfigUtils.addToClasspath(clusterConfiguration);
 		
 		File miniClusterExe = new File(parentPath.toString() + "/yarn-test-cluster/build/install/yarn-test-cluster/bin/yarn-test-cluster");
 		System.out.println(miniClusterExe.getAbsolutePath());
@@ -75,15 +76,30 @@ public class MiniClusterUtils {
 			public void run() {
 				logger.info("STARTING MINI_CLUSTER");
 				clusterLauncher.launch();
+				System.out.println("EXITING>>>>>>>>>");
 			}
 		});
+		try {
+			Thread.sleep(2000);
+		} 
+		catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 	}
 	
 	public static void stoptMiniCluster(){
 		if (clusterLauncher != null){
 			logger.info("STOPPING MINI_CLUSTER");
 			clusterLauncher.finish();
-			executor.shutdownNow();
+			executor.shutdown();
+			try {
+				boolean terminated = executor.awaitTermination(5, TimeUnit.SECONDS);
+				System.out.println("TERMINATED: " + terminated);
+			} 
+			catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			
 			executor = null;
 			clusterLauncher = null;
 		}

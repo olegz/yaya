@@ -54,7 +54,7 @@ public class JavaBasedYarnApplicationClusterDemo {
 	public static void main(String[] args) throws Exception {
 		MiniClusterUtils.startMiniCluster();
 
-		ConfigUtils.setConfig(new File("mini-cluster-config"));
+		ConfigUtils.addToClasspath(new File("mini-cluster-config"));
 		
 		YarnApplication<Void> yarnApplication = YarnAssembly.forApplicationContainer(ReverseMessageContainer.class, ByteBuffer.wrap("Hello Yarn!".getBytes())).
 								containerCount(4).

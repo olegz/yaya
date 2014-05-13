@@ -124,4 +124,9 @@ class ApplicationImpl<T> implements YarnApplication<T> {
 			LockSupport.parkNanos(1000000);
 		}
 	}
+
+//	@Override
+//	public boolean isTerminated() {
+//		return this.yarnApplicationMasterLauncher.isTerminated();
+//	}
 }

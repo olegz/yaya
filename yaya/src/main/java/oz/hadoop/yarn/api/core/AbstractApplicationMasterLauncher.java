@@ -51,7 +51,7 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	
 	private final Log logger = LogFactory.getLog(AbstractApplicationMasterLauncher.class);
 	
-	private final boolean finite;
+	protected final boolean finite;
 
 	protected final Map<String, Object> applicationSpecification;
 	
@@ -70,6 +70,8 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	private volatile ContainerReplyListener replyListener;
 	
 	private T launchResult;
+	
+//	protected boolean running;
 	
 	
 	/**
@@ -105,16 +107,21 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	 */
 	@Override
 	public boolean isRunning() {
-		// clientServer will be before call to launch
-		return this.clientServer != null && this.clientServer.liveContainers() > 0;
+		
+		return this.clientServer != null && this.clientServer.isRunning();
+//		
 	}
+	
+//	@Override
+//	public boolean isTerminated() {
+//		return !this.running;
+//	}
 	
 	/**
 	 * 
 	 */
 	@Override
 	public int liveContainers(){
-		// clientServer will be before call to launch
 		return this.clientServer == null ? 0 : this.clientServer.liveContainers();
 	}
 	
@@ -123,10 +130,11 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 	 */
 	@Override
 	public T launch() {
+		
 		if (logger.isDebugEnabled()){
 			logger.debug("Launching application '" + this.applicationName + "' with the following spec: \n**********\n" + 
 					PrintUtils.prettyMap(this.applicationSpecification) + "\n**********");
-		}
+		}		
 
 		int applicationContainerCount = this.applicationContainerSpecification.getInt(YayaConstants.CONTAINER_COUNT);
 		
@@ -145,15 +153,18 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		if (logger.isInfoEnabled()){
 			logger.info("Awaiting " + this.awaitAllContainersTimeout + " seconds for all Application Containers to report");
 		}
+		
 		if (!this.clientServer.awaitAllClients(this.awaitAllContainersTimeout)){
 			this.clientServer.stop(true);
-			this.close();
 			throw new IllegalStateException("Failed to establish connection with all Application Containers. Application shutdown");
 		}
+//		this.running = true;
+		
 		if (logger.isInfoEnabled()){
 			logger.info("Established connection with all " + applicationContainerCount + " Application Containers");
 		}
 		this.launchResult = this.buildLaunchResult(this.finite);
+		
 		return this.launchResult;
 	}
 	
@@ -191,28 +202,35 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		}
 		else {
 			final ContainerDelegate[] containerDelegates = clientServer.getContainerDelegates();
-			if (logger.isDebugEnabled()){
-				logger.debug("Sending start to Application Containers");
+			if (containerDelegates.length == 0){
+				logger.warn("ClientServer returned 0 ContainerDelegates");
 			}
-			final CountDownLatch completionLatch = new CountDownLatch(containerDelegates.length);
-			for (ContainerDelegate containerDelegate : containerDelegates) {
-				containerDelegate.process(ByteBuffer.wrap("START".getBytes()), new ReplyPostProcessor() {	
-					@Override
-					public void doProcess(ByteBuffer reply) {
-						completionLatch.countDown();
-					}
-				});
-			}
-			/*
-			 * By initiating a graceful shutdown we simply sending a signal
-			 * for an application to stop once complete.
-			 */
-			this.executor.execute(new Runnable() {		
-				@Override
-				public void run() {
-					clientServer.stop(false);
+			else {
+				if (logger.isDebugEnabled()){
+					logger.debug("Sending start to Application Containers");
 				}
-			});
+				final CountDownLatch completionLatch = new CountDownLatch(containerDelegates.length);
+				for (ContainerDelegate containerDelegate : containerDelegates) {
+					containerDelegate.process(ByteBuffer.wrap("START".getBytes()), new ReplyPostProcessor() {	
+						@Override
+						public void doProcess(ByteBuffer reply) {
+							completionLatch.countDown();
+						}
+					});
+				}
+			}
+//			if (this.clientServer.isRunning()){
+//				/*
+//				 * By initiating a graceful shutdown we simply sending a signal
+//				 * for an application to stop once complete.
+//				 */
+//				this.executor.execute(new Runnable() {		
+//					@Override
+//					public void run() {
+//						clientServer.stop(false);
+//					}
+//				});
+//			}
 			returnValue = null;
 		}
 		return returnValue;
@@ -239,10 +257,12 @@ abstract class AbstractApplicationMasterLauncher<T> implements ApplicationMaster
 		logger.debug("Shutting down executor");
 		this.executor.shutdown();
 		ApplicationId shutDownApplication = this.doShutDown();
+//		this.executor.shutdown();
 		if (logger.isInfoEnabled()){
 			logger.info("Application Master for Application: " + this.applicationName 
 					+ " with ApplicationId: " + shutDownApplication + " was shut down.");
 		}
+//		this.running = false;
 	}
 	
 	/**

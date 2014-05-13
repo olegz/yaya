@@ -44,6 +44,7 @@ interface ApplicationMasterLauncher<T> {
 	 */
 	void terminate();
 	
+	
 	/**
 	 * 
 	 * @return

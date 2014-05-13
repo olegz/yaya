@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 
@@ -122,10 +123,33 @@ public class ClientServerTests {
 		final ApplicationContainerServer clientServer = new ApplicationContainerServerImpl(expectedClients, false, mock(Runnable.class));
 		InetSocketAddress address = clientServer.start();
 		
-		ApplicationContainerClient containerClientOne = new ApplicationContainerClientImpl(address, new BlockingMessageHandler(), mock(Runnable.class));
+		final AtomicInteger containerExitCount = new AtomicInteger();
+		
+		final ApplicationContainerClient applicationMasterClient = new ApplicationContainerClientImpl(address, new BlockingMessageHandler(), mock(Runnable.class));
+		applicationMasterClient.start();
+		
+		ApplicationContainerClient containerClientOne = new ApplicationContainerClientImpl(address, new BlockingMessageHandler(), new Runnable() {
+			
+			@Override
+			public void run() {
+				containerExitCount.incrementAndGet();
+				if (containerExitCount.get() == 2){
+					applicationMasterClient.stop(true);
+				}
+			}
+		});
 		containerClientOne.start();
 		
-		ApplicationContainerClient containerClientTwo = new ApplicationContainerClientImpl(address, new BlockingMessageHandler(), mock(Runnable.class));
+		ApplicationContainerClient containerClientTwo = new ApplicationContainerClientImpl(address, new BlockingMessageHandler(), new Runnable() {
+			
+			@Override
+			public void run() {
+				containerExitCount.incrementAndGet();
+				if (containerExitCount.get() == 2){
+					applicationMasterClient.stop(true);
+				}
+			}
+		});
 		containerClientTwo.start();
 		
 		clientServer.awaitAllClients(1);
