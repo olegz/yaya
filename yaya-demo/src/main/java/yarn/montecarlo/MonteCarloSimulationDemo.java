@@ -58,8 +58,8 @@ public class MonteCarloSimulationDemo {
 		DataProcessor processor = yarnApplication.launch();
 		System.out.println("\n=== STARTING SIMULATION ===\n");
 		long start = System.currentTimeMillis();
-		for (int sigma = 5; sigma < 15; sigma++) {
-			for (int avReturn = 9; avReturn < 14; avReturn++) {
+		for (int sigma = 5; sigma < 20; sigma++) {
+			for (int avReturn = 8; avReturn < 16; avReturn++) {
 				for (int anualInv = 5000; anualInv < 6000; anualInv += 100) { 
 					ByteBuffer inputBuffer = ByteBuffer.allocate(6*4);
 					inputBuffer.putInt(sigma);
