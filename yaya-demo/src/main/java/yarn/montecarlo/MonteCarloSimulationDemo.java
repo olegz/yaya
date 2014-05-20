@@ -48,7 +48,9 @@ public class MonteCarloSimulationDemo {
 		
 		YarnApplication<DataProcessor> yarnApplication = YarnAssembly.forApplicationContainer(MonteCarloSimulationContainer.class).
 					containerCount(containerCount).
+					memory(128).
 					withApplicationMaster(new YarnConfiguration(new Configuration())).
+							memory(128).
 							build("MonteCarloSimulation");
 		
 		yarnApplication.registerReplyListener(new ResultsPrinter());
