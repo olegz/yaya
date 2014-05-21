@@ -1,5 +1,5 @@
 #### _Try and YARN in less then 5_
-This project's main goal is to define a **simpler (developer friendly) YARN API**, allowing end user to concentrate on
+This project is an R&D effort (for now) with the main goal of defining and discovering a **simpler (developer friendly) ways** of using YARN, allowing end user to concentrate on
 the functional aspects of an application while delegating infrastructure and boilerplate code dealing with YARN internals to the framework. 
 
 ### YARN could and should be as simple as:
