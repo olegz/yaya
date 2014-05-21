@@ -69,7 +69,7 @@ public class InvestementSimulation  {
 			double normInv = MathUtils.compute(random.nextDouble(), avReturn, sigma)/100;
 			int couneter = 0;
 			do {
-				anualIncrease = (float) (anualIncrease * (1 + (double)normInv) + anualInvestement);
+				anualIncrease = (float) (anualIncrease * (1 + normInv) + anualInvestement);
 				cycleResults.putFloat(initialInvestment);
 			} while (++couneter < cycle); // B4 duration
 			simulationResults.putDouble(anualIncrease);
